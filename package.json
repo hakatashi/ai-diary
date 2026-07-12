@@ -1,5 +1,5 @@
 {
-	"name": "solid-start-firebase-template",
+	"name": "hakatadiary",
 	"type": "module",
 	"scripts": {
 		"dev": "concurrently \"npm run dev:server\" \"npm run dev:firebase\" \"npm run functions:build:watch\" --names server,firebase,functions",
@@ -13,7 +13,7 @@
 		"format": "biome format --write",
 		"fix": "npm run format && npm run lint -- --unsafe",
 		"test": "concurrently \"npm run dev:firebase\" \"npm run test:vitest\" --names firebase,vitest --kill-others --success first",
-		"test:vitest": "wait-on http-get://localhost:8080 http-get://localhost:5000 http-get://localhost:9099 && vitest",
+		"test:vitest": "wait-on http-get://localhost:40615 http-get://localhost:5000 http-get://localhost:9099 && vitest",
 		"prepare": "husky",
 		"install": "cd functions && npm install"
 	},

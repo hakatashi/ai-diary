@@ -5,7 +5,7 @@
 	},
 	"emulators": {
 		"firestore": {
-			"port": 8080
+			"port": 40615
 		},
 		"ui": {
 			"enabled": true

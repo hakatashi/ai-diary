@@ -11,7 +11,7 @@ import type {Task} from '../../src/lib/schema.ts';
 import {onSchedule} from 'firebase-functions/scheduler';
 
 if (process.env.FUNCTIONS_EMULATOR === 'true') {
-	process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
+	process.env.FIRESTORE_EMULATOR_HOST = 'localhost:40615';
 }
 
 const app = initializeApp();
