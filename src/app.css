@@ -2,8 +2,8 @@
 @import 'tailwindcss';
 
 @theme {
-	--font-heading: 'Archivo', system-ui, sans-serif;
-	--font-body: 'Archivo', system-ui, sans-serif;
+	--font-heading: 'Noto Sans CJK JP', system-ui, sans-serif;
+	--font-body: 'Noto Sans CJK JP', system-ui, sans-serif;
 
 	--color-bg: #f3f2f2;
 	--color-surface: #eae9e9;
