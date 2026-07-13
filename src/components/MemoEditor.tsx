@@ -1,12 +1,14 @@
 import {doc, serverTimestamp, setDoc} from 'firebase/firestore';
 import {useFirestore} from 'solid-firebase';
-import {createEffect, createSignal} from 'solid-js';
+import {createEffect, createSignal, Show} from 'solid-js';
+import {PencilIcon} from '~/components/icons';
 import {JournalEntries} from '~/lib/firebase';
 
 const MemoEditor = (props: {date: string}) => {
 	const journalRef = () => doc(JournalEntries, props.date);
 	const journalState = useFirestore(journalRef);
 	const [memo, setMemo] = createSignal('');
+	const [editing, setEditing] = createSignal(false);
 	const [saving, setSaving] = createSignal(false);
 
 	createEffect(() => {
@@ -28,29 +30,56 @@ const MemoEditor = (props: {date: string}) => {
 				},
 				{merge: true},
 			);
+			setEditing(false);
 		} finally {
 			setSaving(false);
 		}
 	};
 
 	return (
-		<div class="flex flex-col gap-2 rounded-md border border-slate-200 bg-white p-4">
-			<h2 class="font-semibold text-slate-700">メモ</h2>
-			<textarea
-				class="min-h-32 rounded-md border border-slate-300 p-2 text-sm"
-				value={memo()}
-				onInput={(event) => setMemo(event.currentTarget.value)}
-				placeholder="今日の出来事を記録..."
-			/>
-			<button
-				type="button"
-				onClick={handleSave}
-				disabled={saving()}
-				class="self-start rounded-md bg-slate-900 px-4 py-1.5 text-sm text-white hover:bg-slate-700 disabled:opacity-50"
-			>
-				{saving() ? '保存中...' : '保存'}
-			</button>
-		</div>
+		<Show
+			when={editing()}
+			fallback={
+				<div class="relative">
+					<p class="whitespace-pre-wrap pr-9 text-[15px] leading-[1.75]">
+						{memo() || 'この日のメモはまだありません。'}
+					</p>
+					<button
+						type="button"
+						onClick={() => setEditing(true)}
+						class="absolute top-0 right-0 flex h-7 w-7 cursor-pointer items-center justify-center border-0 bg-transparent text-text/35 hover:bg-text/7"
+					>
+						<PencilIcon />
+					</button>
+				</div>
+			}
+		>
+			<div class="flex flex-col gap-2">
+				<textarea
+					class="input min-h-32"
+					value={memo()}
+					onInput={(event) => setMemo(event.currentTarget.value)}
+					placeholder="今日の出来事を記録..."
+				/>
+				<div class="flex gap-2 self-start">
+					<button
+						type="button"
+						onClick={handleSave}
+						disabled={saving()}
+						class="btn btn-primary"
+					>
+						{saving() ? '保存中...' : '保存'}
+					</button>
+					<button
+						type="button"
+						onClick={() => setEditing(false)}
+						class="btn btn-secondary"
+					>
+						キャンセル
+					</button>
+				</div>
+			</div>
+		</Show>
 	);
 };
 
