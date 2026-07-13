@@ -76,7 +76,8 @@ export const normalizeExercise = (
 	const endDate = interval.endTime ? new Date(interval.endTime) : null;
 
 	const sourceRecordId =
-		point.name ?? `${interval.startTime}_${interval.endTime ?? ''}`;
+		point.name ??
+		`${exerciseType ?? 'unknown'}_${interval.startTime}_${interval.endTime ?? ''}`;
 
 	const durationMinutes = endDate
 		? Math.round((endDate.getTime() - startDate.getTime()) / 60000)

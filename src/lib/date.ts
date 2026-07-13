@@ -27,3 +27,15 @@ const timeFormatter = new Intl.DateTimeFormat('ja-JP', {
 });
 
 export const formatTime = (date: Date): string => timeFormatter.format(date);
+
+const dateTimeFormatter = new Intl.DateTimeFormat('ja-JP', {
+	timeZone: TIME_ZONE,
+	year: 'numeric',
+	month: '2-digit',
+	day: '2-digit',
+	hour: '2-digit',
+	minute: '2-digit',
+});
+
+export const formatDateTime = (date: Date): string =>
+	dateTimeFormatter.format(date);

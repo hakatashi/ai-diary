@@ -36,7 +36,7 @@ const civilDateFormatter = new Intl.DateTimeFormat('en-CA', {
 });
 
 const buildTimeRangeFilter = (startTime: Date, endTime: Date): string =>
-	`exercise.interval.civil_start_time >= "${civilDateFormatter.format(startTime)}" AND exercise.interval.civil_start_time < "${civilDateFormatter.format(endTime)}"`;
+	`exercise.interval.civil_start_time >= "${civilDateFormatter.format(startTime)}" AND exercise.interval.civil_start_time <= "${civilDateFormatter.format(endTime)}"`;
 
 export const listExercises = async (
 	refreshToken: string,
