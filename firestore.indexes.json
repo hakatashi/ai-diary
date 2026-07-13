@@ -1,4 +1,24 @@
 {
-	"indexes": [],
+	"indexes": [
+		{
+			"collectionGroup": "logEntries",
+			"queryScope": "COLLECTION",
+			"fields": [
+				{
+					"fieldPath": "date",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "startAt",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "__name__",
+					"order": "ASCENDING"
+				}
+			],
+			"density": "SPARSE_ALL"
+		}
+	],
 	"fieldOverrides": []
 }
