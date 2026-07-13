@@ -1,5 +1,4 @@
-import {OAuth2Client} from 'google-auth-library';
-import {googleClientId, googleClientSecret} from '../../lib/secrets';
+import {getGoogleAccessToken} from '../../lib/googleOAuth';
 
 const API_BASE_URL = 'https://health.googleapis.com/v4';
 
@@ -9,19 +8,6 @@ interface ListExerciseResponse {
 	dataPoints?: RawExerciseDataPoint[];
 	nextPageToken?: string;
 }
-
-const getAccessToken = async (refreshToken: string): Promise<string> => {
-	const client = new OAuth2Client({
-		clientId: googleClientId.value(),
-		clientSecret: googleClientSecret.value(),
-	});
-	client.setCredentials({refresh_token: refreshToken});
-	const {token} = await client.getAccessToken();
-	if (!token) {
-		throw new Error('Failed to obtain a Google Health API access token.');
-	}
-	return token;
-};
 
 // dataPoints.list はクエリパラメータではなく AIP-160 形式の filter パラメータで
 // 時間範囲を指定する。Session種別のデータタイプ(sleep/ECGを除く)では
@@ -43,7 +29,7 @@ export const listExercises = async (
 	startTime: Date,
 	endTime: Date,
 ): Promise<RawExerciseDataPoint[]> => {
-	const accessToken = await getAccessToken(refreshToken);
+	const accessToken = await getGoogleAccessToken(refreshToken);
 	const results: RawExerciseDataPoint[] = [];
 	let pageToken: string | undefined;
 

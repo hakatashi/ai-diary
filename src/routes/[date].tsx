@@ -5,9 +5,13 @@ import {type JSX, Show} from 'solid-js';
 import AppShell from '~/components/AppShell';
 import {
 	ActivityIcon,
+	CalendarIcon,
+	CheckinIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
+	LocationIcon,
 	MapIcon,
+	PhotoIcon,
 } from '~/components/icons';
 import MemoEditor from '~/components/MemoEditor';
 import Collection from '~/lib/Collection';
@@ -19,6 +23,7 @@ import {
 	shiftDateString,
 } from '~/lib/date';
 import {LogEntries} from '~/lib/firebase';
+import {visibleLogEntries} from '~/lib/logEntries';
 import type {LogEntry, LogEntryCategory} from '~/lib/schema.ts';
 
 const CATEGORY_ICON: Record<
@@ -26,6 +31,10 @@ const CATEGORY_ICON: Record<
 	(props: {size?: number}) => JSX.Element
 > = {
 	exercise: ActivityIcon,
+	location: LocationIcon,
+	checkin: CheckinIcon,
+	calendar: CalendarIcon,
+	photo: PhotoIcon,
 };
 
 const DateNav = (props: {date: string}) => (
@@ -131,7 +140,7 @@ const JournalPage = () => {
 						<hr class="hr" />
 						<div class="flex flex-col">
 							<Collection
-								data={logEntriesState}
+								data={visibleLogEntries(logEntriesState)}
 								empty={
 									<p class="text-[13px] text-text/55">
 										この日の記録はまだありません。
@@ -141,7 +150,10 @@ const JournalPage = () => {
 								{(entry, index) => (
 									<LogEntryItem
 										entry={entry}
-										isLast={index() === (logEntriesState.data?.length ?? 0) - 1}
+										isLast={
+											index() ===
+											(visibleLogEntries(logEntriesState).data?.length ?? 0) - 1
+										}
 									/>
 								)}
 							</Collection>
