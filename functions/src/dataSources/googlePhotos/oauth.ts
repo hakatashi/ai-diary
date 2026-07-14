@@ -2,7 +2,8 @@ import {createGoogleOAuthFlow, REGION} from '../../lib/googleOAuth';
 
 export {REGION};
 export const DATA_SOURCE_ID = 'google_photos';
-const SCOPE = 'https://www.googleapis.com/auth/photospicker.readonly';
+const SCOPE =
+	'https://www.googleapis.com/auth/photospicker.mediaitems.readonly';
 
 const flow = createGoogleOAuthFlow({
 	dataSourceId: DATA_SOURCE_ID,

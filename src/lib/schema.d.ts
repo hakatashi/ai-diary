@@ -88,6 +88,9 @@ export interface PlaceCacheEntry extends DocumentData {
 	formattedAddress: string | null;
 	location: GeoPoint | null;
 	types: string[];
+	/** Places API (New) のレスポンス全体。Pro SKUで追加費用なく取得できるフィールドを
+	 * 再呼び出しなしで後から参照できるよう、生のレスポンスをそのまま保持する。 */
+	raw: Record<string, unknown>;
 	fetchedAt: Timestamp;
 }
 

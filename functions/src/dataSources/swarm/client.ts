@@ -22,34 +22,49 @@ export interface RawCheckin {
 	[key: string]: unknown;
 }
 
-interface HistorySearchResponse {
+interface GetCheckinsResponse {
 	response?: {
-		items?: RawCheckin[];
+		checkins?: {
+			count?: number;
+			items?: RawCheckin[];
+		};
 	};
 }
 
-// 参照: https://zenn.dev/h4y4bus4/scraps/79a3ffd301e89e
-// レスポンスの実フィールドは未検証(ドキュメント/ブログ記事からの推定)。
-// 初回実接続時にGoogle Health連携同様の調整が必要になる可能性がある。
+export interface CheckinsPage {
+	items: RawCheckin[];
+	/** サーバー側が把握している全チェックイン件数(ページネーションの終了判定に使う)。 */
+	count: number;
+}
+
+// `/v2/users/self/historysearch` はPersonalization APIのクレジット制対象で、
+// 実接続で 402 credits_exhausted となったため使用しない。代わりにclassic v2 APIの
+// `/v2/users/self/checkins` を使う(Foursquareのドキュメントでchekcins系エンドポイントは
+// 無料枠のまま継続すると明記されている)。ページネーションは beforeTimestamp ではなく
+// offset/limit方式。
+// 参照: https://docs.foursquare.com/developer/reference/get-user-checkins
+// レスポンスの実フィールドは未検証(ドキュメントからの推定)。初回実接続時に
+// Google Health連携同様の調整が必要になる可能性がある。
 export const listCheckins = async (
 	accessToken: string,
-	options: {beforeTimestamp?: number; limit?: number} = {},
-): Promise<RawCheckin[]> => {
-	const url = new URL(`${API_BASE_URL}/users/self/historysearch`);
+	options: {offset?: number; limit?: number} = {},
+): Promise<CheckinsPage> => {
+	const url = new URL(`${API_BASE_URL}/users/self/checkins`);
 	url.searchParams.set('oauth_token', accessToken);
 	url.searchParams.set('v', API_VERSION);
 	url.searchParams.set('limit', String(options.limit ?? 250));
-	if (options.beforeTimestamp) {
-		url.searchParams.set('beforeTimestamp', String(options.beforeTimestamp));
-	}
+	url.searchParams.set('offset', String(options.offset ?? 0));
 
 	const response = await fetch(url);
 	if (!response.ok) {
 		throw new Error(
-			`Foursquare historysearch request failed: ${response.status} ${await response.text()}`,
+			`Foursquare checkins request failed: ${response.status} ${await response.text()}`,
 		);
 	}
 
-	const body = (await response.json()) as HistorySearchResponse;
-	return body.response?.items ?? [];
+	const body = (await response.json()) as GetCheckinsResponse;
+	return {
+		items: body.response?.checkins?.items ?? [],
+		count: body.response?.checkins?.count ?? 0,
+	};
 };

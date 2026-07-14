@@ -190,9 +190,15 @@ const GoogleMapsTimelineCard = () => {
 				semanticSegments?: Record<string, unknown>[];
 			};
 			const segments = data.semanticSegments ?? [];
-			const filtered = segments.filter(
-				(segment) => 'visit' in segment || 'activity' in segment,
-			);
+			// 中断されても新しい(=直近の)データが優先的に取り込まれるよう、
+			// 日時が新しい順に並べ替えてからインポートする。
+			const filtered = segments
+				.filter((segment) => 'visit' in segment || 'activity' in segment)
+				.sort((a, b) => {
+					const aTime = Date.parse((a as {startTime?: string}).startTime ?? '');
+					const bTime = Date.parse((b as {startTime?: string}).startTime ?? '');
+					return bTime - aTime;
+				});
 			const visitCount = filtered.filter((s) => 'visit' in s).length;
 			const activityCount = filtered.filter((s) => 'activity' in s).length;
 			if (filtered.length === 0) {

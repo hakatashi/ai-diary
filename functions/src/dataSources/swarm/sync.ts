@@ -3,7 +3,7 @@ import {error as logError, info as logInfo} from 'firebase-functions/logger';
 import {db} from '../../lib/firebaseAdmin';
 import {dedupeVisitsAndCheckins} from '../dedup/dedupeVisitsAndCheckins';
 import type {DataSourceSecret} from '../types';
-import {listCheckins} from './client';
+import {listCheckins, type RawCheckin} from './client';
 import {normalizeCheckin} from './normalize';
 import {DATA_SOURCE_ID} from './oauth';
 
@@ -33,27 +33,23 @@ export const syncSwarmCheckins = async (
 	}
 
 	try {
-		const allCheckins: Awaited<ReturnType<typeof listCheckins>> = [];
-		let beforeTimestamp: number | undefined;
+		const allCheckins: RawCheckin[] = [];
+		let offset = 0;
 		// 通常同期は最新1ページのみ(既存分は冪等upsertなので取りこぼしにはならない)。
 		// フルバックフィルは暴走防止のため最大20ページ(最大5,000件)までに制限する。
 		const maxPages = options.fullBackfill ? MAX_BACKFILL_PAGES : 1;
 
 		for (let page = 0; page < maxPages; page += 1) {
-			const items = await listCheckins(secret.payload.accessToken, {
-				beforeTimestamp,
+			const {items, count} = await listCheckins(secret.payload.accessToken, {
+				offset,
 				limit: PAGE_SIZE,
 			});
 			if (items.length === 0) {
 				break;
 			}
 			allCheckins.push(...items);
-			const oldest = items[items.length - 1];
-			if (!oldest.createdAt) {
-				break;
-			}
-			beforeTimestamp = oldest.createdAt;
-			if (items.length < PAGE_SIZE) {
+			offset += items.length;
+			if (offset >= count || items.length < PAGE_SIZE) {
 				break;
 			}
 		}
