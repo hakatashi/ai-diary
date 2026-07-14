@@ -1,5 +1,4 @@
-import {OAuth2Client} from 'google-auth-library';
-import {googleClientId, googleClientSecret} from '../../lib/secrets';
+import {getGoogleAccessToken} from '../../lib/googleOAuth';
 
 const API_BASE_URL = 'https://health.googleapis.com/v4';
 
@@ -10,24 +9,16 @@ interface ListExerciseResponse {
 	nextPageToken?: string;
 }
 
-const getAccessToken = async (refreshToken: string): Promise<string> => {
-	const client = new OAuth2Client({
-		clientId: googleClientId.value(),
-		clientSecret: googleClientSecret.value(),
-	});
-	client.setCredentials({refresh_token: refreshToken});
-	const {token} = await client.getAccessToken();
-	if (!token) {
-		throw new Error('Failed to obtain a Google Health API access token.');
-	}
-	return token;
-};
-
 // dataPoints.list はクエリパラメータではなく AIP-160 形式の filter パラメータで
 // 時間範囲を指定する。Session種別のデータタイプ(sleep/ECGを除く)では
 // `interval.start_time`/`interval.end_time` はフィルタ不可(INVALID_DATA_POINT_FILTER)で、
 // `{type}.interval.civil_start_time` のみがサポートされる(値はcivil dateのプレーンな日付文字列)。
 // 参照: https://developers.google.com/health/reference/rest/v4/users.dataTypes.dataPoints/list
+//
+// さらに `civil_start_time` は GREATER_THAN_EQUALS と LESS_THAN の2つのコンパレータしか
+// サポートしない(`<=` を使うと INVALID_DATA_POINT_FILTER_RESTRICTION_COMPARATOR エラーになる、
+// 実接続で確認済み)。同期対象の最終日を含めるため、上限には endTime の翌日の日付を
+// 排他境界(`<`)として使う。
 const civilDateFormatter = new Intl.DateTimeFormat('en-CA', {
 	timeZone: 'Asia/Tokyo',
 	year: 'numeric',
@@ -35,15 +26,25 @@ const civilDateFormatter = new Intl.DateTimeFormat('en-CA', {
 	day: '2-digit',
 });
 
-const buildTimeRangeFilter = (startTime: Date, endTime: Date): string =>
-	`exercise.interval.civil_start_time >= "${civilDateFormatter.format(startTime)}" AND exercise.interval.civil_start_time <= "${civilDateFormatter.format(endTime)}"`;
+const nextCivilDate = (dateStr: string): string => {
+	const [year, month, day] = dateStr.split('-').map(Number);
+	const shifted = new Date(Date.UTC(year, month - 1, day));
+	shifted.setUTCDate(shifted.getUTCDate() + 1);
+	return shifted.toISOString().slice(0, 10);
+};
+
+const buildTimeRangeFilter = (startTime: Date, endTime: Date): string => {
+	const startDate = civilDateFormatter.format(startTime);
+	const exclusiveEndDate = nextCivilDate(civilDateFormatter.format(endTime));
+	return `exercise.interval.civil_start_time >= "${startDate}" AND exercise.interval.civil_start_time < "${exclusiveEndDate}"`;
+};
 
 export const listExercises = async (
 	refreshToken: string,
 	startTime: Date,
 	endTime: Date,
 ): Promise<RawExerciseDataPoint[]> => {
-	const accessToken = await getAccessToken(refreshToken);
+	const accessToken = await getGoogleAccessToken(refreshToken);
 	const results: RawExerciseDataPoint[] = [];
 	let pageToken: string | undefined;
 

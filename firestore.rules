@@ -23,6 +23,14 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /placesCache/{placeId} {
+      allow read, write: if false;
+    }
+
+    match /placesApiUsage/{monthKey} {
+      allow read, write: if false;
+    }
+
     match /logEntries/{logEntryId} {
       allow read: if isOwner();
       allow write: if false;

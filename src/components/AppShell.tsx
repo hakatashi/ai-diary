@@ -20,6 +20,8 @@ const AppShell = (props: {
 				)}
 			</Show>
 			<div class="ml-auto flex items-center gap-4">
+				<A href="/calendar">カレンダー</A>
+				<A href="/list">一覧</A>
 				<A href="/data-sources">データソース</A>
 				<A href="/settings">設定</A>
 				<button

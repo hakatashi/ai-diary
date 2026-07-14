@@ -11,7 +11,12 @@ export interface UseFireStoreReturn<T> {
 	error: FirestoreError | null;
 }
 
-export type DataSourceType = 'google_health';
+export type DataSourceType =
+	| 'google_health'
+	| 'google_calendar'
+	| 'google_maps_timeline'
+	| 'swarm'
+	| 'google_photos';
 
 export type DataSourceStatus =
 	| 'connected'
@@ -35,9 +40,20 @@ export interface DataSource extends DocumentData {
 	updatedAt: Timestamp;
 }
 
-export type LogEntrySourceType = 'google_health_exercise';
+export type LogEntrySourceType =
+	| 'google_health_exercise'
+	| 'google_calendar_event'
+	| 'google_maps_visit'
+	| 'google_maps_activity'
+	| 'swarm_checkin'
+	| 'google_photos_photo';
 
-export type LogEntryCategory = 'exercise';
+export type LogEntryCategory =
+	| 'exercise'
+	| 'location'
+	| 'checkin'
+	| 'calendar'
+	| 'photo';
 
 export interface LogEntryMetrics {
 	durationMinutes?: number;
@@ -59,8 +75,23 @@ export interface LogEntry extends DocumentData {
 	location: GeoPoint | null;
 	raw: Record<string, unknown>;
 	sourceRecordId: string;
+	/** 重複統合で他のエントリに吸収された場合にtrue。UI側で非表示にする(rawは保持し削除はしない)。 */
+	hidden?: boolean;
+	/** hidden===trueの場合、統合先のlogEntryId */
+	dedupedInto?: string | null;
 	createdAt: Timestamp;
 	updatedAt: Timestamp;
+}
+
+export interface PlaceCacheEntry extends DocumentData {
+	displayName: string;
+	formattedAddress: string | null;
+	location: GeoPoint | null;
+	types: string[];
+	/** Places API (New) のレスポンス全体。Pro SKUで追加費用なく取得できるフィールドを
+	 * 再呼び出しなしで後から参照できるよう、生のレスポンスをそのまま保持する。 */
+	raw: Record<string, unknown>;
+	fetchedAt: Timestamp;
 }
 
 export interface JournalEntry extends DocumentData {
