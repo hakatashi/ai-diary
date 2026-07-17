@@ -35,7 +35,7 @@
 	"devDependencies": {
 		"@biomejs/biome": "2.5.3",
 		"@solidjs/testing-library": "^0.8.10",
-		"@tailwindcss/vite": "^4.3.2",
+		"@tailwindcss/vite": "^4.3.3",
 		"@testing-library/jest-dom": "^6.9.1",
 		"@testing-library/user-event": "^14.6.1",
 		"husky": "^9.1.7",
