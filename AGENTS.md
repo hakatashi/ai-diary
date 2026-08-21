@@ -41,7 +41,7 @@ Firebaseプロジェクト: `hakatadiary`(`.firebaserc` に設定済み)。
 「全ページ認証必須」は、SolidStartの `middleware.ts`(サーバーサイドガード)ではなく、以下の2層で実現している:
 
 1. **`src/components/AuthGuard.tsx`**: `app.tsx` の `Router root` 内で全ルートをラップするクライアント側コンポーネント。`solid-firebase` の `useAuth` で認証状態を監視し、未ログインまたは許可外メール(`src/lib/constants.ts` の `ALLOWED_EMAIL`)の場合は `/login` へ `<Navigate>` する。`/login` 自身はガード対象外(無限リダイレクトループ防止)。
-2. **Firestore Security Rules(`firestore.rules`)**: 実データ保護の**唯一の真の境界**。`request.auth.token.email == 'hakatasiloving@gmail.com' && request.auth.token.email_verified` を満たさない限り一切のread/writeを許可しない。
+2. **Firestore Security Rules(`firestore.rules`)**: 実データ保護の**唯一の真の境界**。`request.auth.token.email == 'hakatasiloving@gmail.com' && request.auth.token.email_verified` を満たさない限り一切のread/writeを許可しない。owner/非owner/未認証の3パターンでの許可・拒否は `firestore.rules.test.ts`(`@firebase/rules-unit-testing` の `initializeTestEnvironment` を使用、`npm test` に含まれる)で自動検証している。
 
 この方式を選んだ理由: SolidStart + Firebase HostingでのSSR化(Nitroの `firebase` プリセットをCloud Functions Gen2にデプロイする構成)は主にNuxt向けに検証されており、SolidStartでの実績が薄く動作未検証のリスクが高いと判断したため。ページシェル自体には機密データを一切含まない(全データはFirestoreのリアクティブ購読経由でのみ取得される)ため、クライアント側ガードでも実害はない。**将来的にSSR化が本当に必要になった場合は、`app.config.ts` の `ssr: false` を外し、Nitroの `firebase` プリセットの動作検証をスパイクタスクとして独立させてから着手すること。**
 
@@ -177,4 +177,3 @@ npx firebase deploy       # 本番デプロイ(hosting + firestore rules/indexes
 - Swarm(Foursquare v2 API `/v2/users/self/checkins`)のレスポンス実フィールドはドキュメントからの推定で実装しており未検証。初回実接続時にGoogle Health連携同様のトライアル&エラー修正が必要になる可能性が高い。また同エンドポイントを含むv2レガシーAPIは2026年5月15日に廃止予定とFoursquareが告知しており、将来的な再移行が必要になる見込み。
 - 複数データソース間の意味的重複統合は、Google Maps訪問記録⇔Swarmチェックインの組み合わせのみ実装済み(`functions/src/dataSources/dedup/dedupeVisitsAndCheckins.ts`)。しきい値(20分/200m)は保守的な初期値であり、実データでの調整が必要になる可能性がある。Google Calendarの予定⇔Immichの写真など、他の組み合わせの統合は未実装。
 - AIパートナーの複数ペルソナ・長期記憶のFirestoreスキーマはフェーズ4で設計する(現時点では未着手)。
-- `firestore.rules` の自動テスト(`@firebase/rules-unit-testing`)は未整備。将来的に追加を検討する。
