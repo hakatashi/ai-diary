@@ -1,8 +1,7 @@
 import {createHash} from 'node:crypto';
 import {GeoPoint, Timestamp} from 'firebase-admin/firestore';
-import type {LogEntry} from '../../../../src/lib/schema.ts';
+import type {LogEntry, PlaceCacheEntry} from '../../../../src/lib/schema.ts';
 import {saveGpsTrack} from '../../lib/gpsTrackStorage';
-import {resolvePlace} from './placesClient';
 
 const TIME_ZONE = 'Asia/Tokyo';
 const dateFormatter = new Intl.DateTimeFormat('en-CA', {
@@ -150,9 +149,10 @@ export const isMemorySegment = (
 	'timelineMemory' in segment &&
 	Boolean((segment as RawMemorySegment).timelineMemory);
 
-export const normalizeVisitSegment = async (
+export const normalizeVisitSegment = (
 	segment: RawVisitSegment,
-): Promise<NormalizedSegment | null> => {
+	resolvedPlaces: Map<string, PlaceCacheEntry | null>,
+): NormalizedSegment | null => {
 	const startDate = new Date(segment.startTime);
 	const endDate = segment.endTime ? new Date(segment.endTime) : null;
 	if (Number.isNaN(startDate.getTime())) {
@@ -165,8 +165,7 @@ export const normalizeVisitSegment = async (
 
 	let title: string | undefined;
 	if (placeId) {
-		const place = await resolvePlace(placeId);
-		title = place?.displayName;
+		title = resolvedPlaces.get(placeId)?.displayName;
 	}
 	if (!title && topCandidate?.semanticType) {
 		title = SEMANTIC_TYPE_LABELS[topCandidate.semanticType];

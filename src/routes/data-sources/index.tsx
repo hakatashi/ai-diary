@@ -41,7 +41,7 @@ const syncImmichNow = httpsCallable<{fullBackfill?: boolean}, unknown>(
 const importGoogleMapsTimelineChunk = httpsCallable<
 	{segments: Record<string, unknown>[]},
 	{imported: number; skipped: number}
->(functions, 'importGoogleMapsTimelineChunk');
+>(functions, 'importGoogleMapsTimelineChunk', {timeout: 300_000});
 const dedupeLogEntriesNow = httpsCallable<
 	{dateFrom: string; dateTo: string},
 	{status: string; datesProcessed: number}
