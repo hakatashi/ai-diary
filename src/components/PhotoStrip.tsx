@@ -47,7 +47,7 @@ const PhotoThumbnail = (props: {entry: LogEntry; onOpen: () => void}) => {
 					<img
 						src={url()}
 						alt={props.entry.title}
-						class="h-full w-full object-cover grayscale contrast-105"
+						class="h-full w-full object-cover"
 					/>
 				)}
 			</Show>
@@ -116,7 +116,7 @@ const PhotoStrip = (props: {entries: LogEntry[]}) => {
 									<img
 										src={url()}
 										alt={entry.title}
-										class="h-[420px] w-full object-contain grayscale contrast-105"
+										class="h-[420px] w-full object-contain"
 									/>
 								)}
 							</Show>
