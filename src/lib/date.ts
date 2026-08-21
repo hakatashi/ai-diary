@@ -52,3 +52,44 @@ const dateTimeFormatter = new Intl.DateTimeFormat('ja-JP', {
 
 export const formatDateTime = (date: Date): string =>
 	dateTimeFormatter.format(date);
+
+export const getCurrentMonthString = (): string =>
+	getTodayDateString().slice(0, 7);
+
+export const isValidMonthString = (month: string): boolean =>
+	/^\d{4}-\d{2}$/.test(month);
+
+export const shiftMonthString = (month: string, delta: number): string => {
+	const [year, monthIndex] = month.split('-').map(Number);
+	const shifted = new Date(Date.UTC(year, monthIndex - 1 + delta, 1));
+	return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}`;
+};
+
+const monthLabelFormatter = new Intl.DateTimeFormat('ja-JP', {
+	timeZone: TIME_ZONE,
+	year: 'numeric',
+	month: 'long',
+});
+
+export const formatMonthLabel = (month: string): string => {
+	const [year, monthIndex] = month.split('-').map(Number);
+	return monthLabelFormatter.format(
+		new Date(Date.UTC(year, monthIndex - 1, 1)),
+	);
+};
+
+/** 指定した月の全日付("YYYY-MM-DD")を昇順で返す。 */
+export const getDaysInMonth = (month: string): string[] => {
+	const [year, monthIndex] = month.split('-').map(Number);
+	const daysInMonth = new Date(Date.UTC(year, monthIndex, 0)).getUTCDate();
+	return Array.from(
+		{length: daysInMonth},
+		(_, i) => `${month}-${String(i + 1).padStart(2, '0')}`,
+	);
+};
+
+/** 日曜日を0とする曜日インデックスを返す。 */
+export const getWeekdayIndex = (date: string): number => {
+	const [year, month, day] = date.split('-').map(Number);
+	return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+};

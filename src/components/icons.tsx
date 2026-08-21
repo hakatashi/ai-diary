@@ -1,7 +1,11 @@
 import {IonIcon} from '@ionic-solidjs/core';
 import {
+	calendarOutline,
 	chevronBackOutline,
 	chevronForwardOutline,
+	flagOutline,
+	imageOutline,
+	locationOutline,
 	mapOutline,
 	pencilOutline,
 	pulseOutline,
@@ -58,6 +62,42 @@ export const MapIcon = (props: IconProps): JSX.Element => (
 	<IonIcon
 		icon={mapOutline}
 		style={iconSize(props.size ?? 22)}
+		class={props.class}
+		aria-hidden="true"
+	/>
+);
+
+export const LocationIcon = (props: IconProps): JSX.Element => (
+	<IonIcon
+		icon={locationOutline}
+		style={iconSize(props.size ?? 14)}
+		class={props.class}
+		aria-hidden="true"
+	/>
+);
+
+export const CheckinIcon = (props: IconProps): JSX.Element => (
+	<IonIcon
+		icon={flagOutline}
+		style={iconSize(props.size ?? 14)}
+		class={props.class}
+		aria-hidden="true"
+	/>
+);
+
+export const CalendarIcon = (props: IconProps): JSX.Element => (
+	<IonIcon
+		icon={calendarOutline}
+		style={iconSize(props.size ?? 14)}
+		class={props.class}
+		aria-hidden="true"
+	/>
+);
+
+export const PhotoIcon = (props: IconProps): JSX.Element => (
+	<IonIcon
+		icon={imageOutline}
+		style={iconSize(props.size ?? 14)}
 		class={props.class}
 		aria-hidden="true"
 	/>
