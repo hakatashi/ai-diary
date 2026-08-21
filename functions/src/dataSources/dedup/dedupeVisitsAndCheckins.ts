@@ -1,7 +1,14 @@
 import {info as logInfo} from 'firebase-functions/logger';
 import type {LogEntry} from '../../../../src/lib/schema.ts';
+import {mapWithConcurrency} from '../../lib/concurrency';
 import {db} from '../../lib/firebaseAdmin';
 import {type DedupCandidate, findBestMatch} from './geo';
+
+// 日付ごとのクエリを逐次awaitすると対象日数に比例して処理時間が伸びるため、
+// 同時実行数を上げて待ち時間を短縮する。
+const DEDUPE_CONCURRENCY = 20;
+// 1コミットあたりのFirestore書き込み上限(500)に対して余裕を持たせる。
+const MAX_OPS_PER_COMMIT = 450;
 
 const toCandidate = (id: string, data: LogEntry): DedupCandidate => ({
 	id,
@@ -22,7 +29,14 @@ export const dedupeVisitsAndCheckins = async (
 ): Promise<void> => {
 	const uniqueDates = [...new Set(dates)];
 
-	for (const date of uniqueDates) {
+	// 日付ごとの書き込みをその場でcommitすると対象日数と同じ回数のFirestore往復が
+	// 発生するため、マッチした更新内容を集約してから最後にまとめてコミットする。
+	const pendingWrites: {
+		ref: FirebaseFirestore.DocumentReference;
+		dedupedInto: string;
+	}[] = [];
+
+	await mapWithConcurrency(uniqueDates, DEDUPE_CONCURRENCY, async (date) => {
 		const [visitsSnap, checkinsSnap] = await Promise.all([
 			db
 				.collection('logEntries')
@@ -45,9 +59,6 @@ export const dedupeVisitsAndCheckins = async (
 			return !data.hidden && !data.dedupedInto;
 		});
 
-		const batch = db.batch();
-		let writesInBatch = 0;
-
 		for (const checkinDoc of checkinDocs) {
 			const candidate = toCandidate(
 				checkinDoc.id,
@@ -55,18 +66,25 @@ export const dedupeVisitsAndCheckins = async (
 			);
 			const match = findBestMatch(candidate, visits);
 			if (match) {
-				batch.set(
-					checkinDoc.ref,
-					{hidden: true, dedupedInto: match.id},
-					{merge: true},
-				);
-				writesInBatch += 1;
+				pendingWrites.push({ref: checkinDoc.ref, dedupedInto: match.id});
 			}
 		}
+	});
 
-		if (writesInBatch > 0) {
-			await batch.commit();
-			logInfo(`Deduped ${writesInBatch} Swarm checkins on ${date}.`);
+	for (let i = 0; i < pendingWrites.length; i += MAX_OPS_PER_COMMIT) {
+		const batch = db.batch();
+		for (const {ref, dedupedInto} of pendingWrites.slice(
+			i,
+			i + MAX_OPS_PER_COMMIT,
+		)) {
+			batch.set(ref, {hidden: true, dedupedInto}, {merge: true});
 		}
+		await batch.commit();
+	}
+
+	if (pendingWrites.length > 0) {
+		logInfo(
+			`Deduped ${pendingWrites.length} Swarm checkins across ${uniqueDates.length} dates.`,
+		);
 	}
 };
