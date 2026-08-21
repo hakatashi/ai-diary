@@ -30,10 +30,6 @@ const beginSwarmOAuth = httpsCallable<undefined, {authUrl: string}>(
 	'beginSwarmOAuth',
 );
 const syncSwarmNow = httpsCallable(functions, 'syncSwarmNow');
-const connectImmich = httpsCallable<
-	{serverUrl: string; apiKey: string},
-	{status: 'ok'; email: string}
->(functions, 'connectImmich');
 const syncImmichNow = httpsCallable<{fullBackfill?: boolean}, unknown>(
 	functions,
 	'syncImmichNow',
@@ -322,33 +318,12 @@ const GoogleMapsTimelineCard = () => {
 	);
 };
 
-// ── Immich(自己ホスト、APIキーによる接続) ────────────────────────────
+// ── Immich(自己ホスト、サーバーURL・APIキーは環境変数で設定) ──────────
 
 const ImmichCard = () => {
 	const dataSourceState = useFirestore(doc(DataSources, 'immich'));
-	const [serverUrl, setServerUrl] = createSignal('');
-	const [apiKey, setApiKey] = createSignal('');
 	const [busy, setBusy] = createSignal(false);
 	const [error, setError] = createSignal<string | null>(null);
-	const [connectedEmail, setConnectedEmail] = createSignal<string | null>(null);
-
-	const handleConnect = async (event: Event) => {
-		event.preventDefault();
-		setBusy(true);
-		setError(null);
-		try {
-			const result = await connectImmich({
-				serverUrl: serverUrl(),
-				apiKey: apiKey(),
-			});
-			setConnectedEmail(result.data.email);
-			setApiKey('');
-		} catch {
-			setError('接続に失敗しました。サーバーURLとAPIキーを確認してください。');
-		} finally {
-			setBusy(false);
-		}
-	};
 
 	const handleSync = async (fullBackfill: boolean) => {
 		setBusy(true);
@@ -362,41 +337,13 @@ const ImmichCard = () => {
 		}
 	};
 
-	const connectForm = (
-		<form onSubmit={handleConnect} class="flex flex-col gap-2">
-			<input
-				type="url"
-				placeholder="サーバーURL(https://immich.example.com/api)"
-				value={serverUrl()}
-				onInput={(e) => setServerUrl(e.currentTarget.value)}
-				required
-				class="input"
-			/>
-			<input
-				type="password"
-				placeholder="APIキー"
-				value={apiKey()}
-				onInput={(e) => setApiKey(e.currentTarget.value)}
-				required
-				class="input"
-			/>
-			<button
-				type="submit"
-				disabled={busy()}
-				class="btn btn-primary self-start"
-			>
-				{busy() ? '接続中...' : '接続'}
-			</button>
-		</form>
-	);
-
 	return (
-		<li class="flex flex-col gap-2 border-divider border-b-2 pb-4">
+		<li class="flex flex-col gap-2 border-divider border-b-2 pb-4 sm:flex-row sm:items-center sm:justify-between">
 			<div>
 				<p class="font-heading font-extrabold">Immich(自己ホスト写真管理)</p>
 				<p class="text-[12px] text-text/55">
-					サーバーURL(例:
-					https://immich.example.com/api)とAPIキーを入力して接続します。
+					サーバーURL・APIキーはサーバー側の環境変数(IMMICH_SERVER_URL /
+					IMMICH_API_KEY)で設定します。
 				</p>
 				<Doc
 					data={dataSourceState}
@@ -422,39 +369,26 @@ const ImmichCard = () => {
 						</>
 					)}
 				</Doc>
-				{connectedEmail() && (
-					<p class="text-[13px] text-text/55">
-						{connectedEmail()} として接続しました。
-					</p>
-				)}
 				{error() && <p class="text-[13px] text-accent">{error()}</p>}
 			</div>
-			<Doc data={dataSourceState} fallback={connectForm}>
-				{(data) =>
-					data.status === 'connected' ? (
-						<div class="flex gap-2">
-							<button
-								type="button"
-								onClick={() => handleSync(false)}
-								disabled={busy()}
-								class="btn btn-secondary"
-							>
-								{busy() ? '同期中...' : '今すぐ同期'}
-							</button>
-							<button
-								type="button"
-								onClick={() => handleSync(true)}
-								disabled={busy()}
-								class="btn btn-secondary"
-							>
-								{busy() ? '同期中...' : '全期間を同期'}
-							</button>
-						</div>
-					) : (
-						connectForm
-					)
-				}
-			</Doc>
+			<div class="flex gap-2">
+				<button
+					type="button"
+					onClick={() => handleSync(false)}
+					disabled={busy()}
+					class="btn btn-secondary"
+				>
+					{busy() ? '同期中...' : '今すぐ同期'}
+				</button>
+				<button
+					type="button"
+					onClick={() => handleSync(true)}
+					disabled={busy()}
+					class="btn btn-secondary"
+				>
+					{busy() ? '同期中...' : '全期間を同期'}
+				</button>
+			</div>
 		</li>
 	);
 };

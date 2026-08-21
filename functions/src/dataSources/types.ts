@@ -4,10 +4,6 @@ export interface DataSourceSecretPayload {
 	refreshToken?: string;
 	accessToken?: string;
 	scope?: string;
-	/** api_key型データソース(Immich等)のAPIキー。 */
-	apiKey?: string;
-	/** api_key型データソースの接続先サーバーURL(例: ImmichのAPIベースURL)。 */
-	serverUrl?: string;
 }
 
 export interface DataSourceSecret {
