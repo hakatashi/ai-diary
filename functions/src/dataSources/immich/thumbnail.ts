@@ -1,4 +1,5 @@
 import {HttpsError, onCall} from 'firebase-functions/https';
+import {error as logError} from 'firebase-functions/logger';
 import {assertOwner} from '../../lib/assertOwner';
 import {db} from '../../lib/firebaseAdmin';
 import type {DataSourceSecret} from '../types';
@@ -52,9 +53,18 @@ export const getImmichThumbnail = onCall<GetImmichThumbnailRequest>(
 			{headers: {'x-api-key': apiKey}},
 		);
 		if (!response.ok) {
+			const body = await response.text();
+			logError('Immich thumbnail request failed', {
+				status: response.status,
+				body,
+			});
+			// 401/403はAPIキーの権限不足(Immichはキー発行時に細かい権限を選択でき、
+			// Asset > Viewが外れているとサムネイル取得のみ失敗する)であることが多いため、
+			// 'internal'(クライアントにメッセージを返さない特別なコード)ではなく
+			// 'failed-precondition' を使い、原因をそのままクライアント・ログの両方に残す。
 			throw new HttpsError(
-				'internal',
-				`Immich thumbnail request failed: ${response.status}`,
+				'failed-precondition',
+				`Immich thumbnail request failed (${response.status}): ${body}`,
 			);
 		}
 
