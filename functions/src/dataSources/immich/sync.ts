@@ -1,13 +1,10 @@
 import {Timestamp} from 'firebase-admin/firestore';
 import {error as logError, info as logInfo} from 'firebase-functions/logger';
 import {db} from '../../lib/firebaseAdmin';
-import {immichApiKey, immichServerUrl} from '../../lib/secrets';
+import type {DataSourceSecret} from '../types';
 import {type ImmichAsset, searchAssets} from './client';
+import {DATA_SOURCE_ID} from './connect';
 import {normalizeAsset} from './normalize';
-
-export const REGION = 'asia-northeast1';
-export const DATA_SOURCE_ID = 'immich';
-export const DISPLAY_NAME = 'Immich (自己ホスト写真管理)';
 
 const PAGE_SIZE = 250;
 const DEFAULT_LOOKBACK_DAYS = 7;
@@ -18,46 +15,30 @@ const MAX_BACKFILL_PAGES = 40;
 // 1コミットあたりのFirestore書き込み上限(500)に対して余裕を持たせる。
 const MAX_OPS_PER_COMMIT = 450;
 
-// ImmichはOAuthを持たない単一ユーザーの自己ホストサーバーのため、Google/Swarmのような
-// dataSourceSecrets経由のユーザー入力フローは使わず、GOOGLE_PLACES_API_KEY等と同様に
-// Secret Manager(IMMICH_API_KEY)+ 非秘匿パラメータ(IMMICH_SERVER_URL)で設定する。
-// 未設定の間は同期のたびにエラーとして dataSources/immich に記録される
-// (`/data-sources` 画面でエラー内容を確認できる)。
 export const syncImmichPhotos = async (
 	options: {fullBackfill?: boolean} = {},
 ): Promise<void> => {
 	const dataSourceRef = db.collection('dataSources').doc(DATA_SOURCE_ID);
-	const existingDataSource = await dataSourceRef.get();
-	// 他のデータソースと違いOAuthコールバックのような別途の「接続」ステップが存在しない
-	// ため、静的フィールドの初期化はここで行う。IMMICH_API_KEY未設定期間中の同期失敗で
-	// ステータスのみのドキュメントが先に作られる場合があるため、`displayName` の有無で
-	// 判定する(ドキュメントの存在有無だけで判定すると、設定完了後の初回成功時に
-	// 静的フィールドが永久に補完されなくなる)。
-	const needsInit = !existingDataSource.data()?.displayName;
-	const staticFields = needsInit
-		? {
-				type: DATA_SOURCE_ID,
-				displayName: DISPLAY_NAME,
-				category: 'photo',
-				enabled: true,
-				syncCursor: null,
-			}
-		: {};
+	const secretDoc = await db
+		.collection('dataSourceSecrets')
+		.doc(DATA_SOURCE_ID)
+		.get();
+
+	if (!secretDoc.exists) {
+		logInfo('Immich data source is not connected yet. Skipping sync.');
+		return;
+	}
+
+	const secret = secretDoc.data() as DataSourceSecret;
+	const {apiKey, serverUrl} = secret.payload;
+	if (!apiKey || !serverUrl) {
+		logError('Immich secret is missing an apiKey or serverUrl.');
+		return;
+	}
+
 	const now = Timestamp.now();
-	const createdAtField = existingDataSource.exists ? {} : {createdAt: now};
 
 	try {
-		let apiKey: string;
-		try {
-			apiKey = immichApiKey.value();
-		} catch {
-			apiKey = '';
-		}
-		const serverUrl = immichServerUrl.value().trim().replace(/\/+$/, '');
-		if (!apiKey || !serverUrl) {
-			throw new Error('IMMICH_API_KEY / IMMICH_SERVER_URL is not configured.');
-		}
-
 		const takenAfter = options.fullBackfill
 			? undefined
 			: new Date(now.toMillis() - DEFAULT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
@@ -130,8 +111,6 @@ export const syncImmichPhotos = async (
 				lastSyncStatus: 'success',
 				lastSyncError: null,
 				updatedAt: now,
-				...staticFields,
-				...createdAtField,
 			},
 			{merge: true},
 		);
@@ -144,8 +123,6 @@ export const syncImmichPhotos = async (
 				lastSyncStatus: 'error',
 				lastSyncError: err instanceof Error ? err.message : String(err),
 				updatedAt: Timestamp.now(),
-				...staticFields,
-				...createdAtField,
 			},
 			{merge: true},
 		);

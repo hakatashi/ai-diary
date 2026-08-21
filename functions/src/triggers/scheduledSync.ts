@@ -5,11 +5,7 @@ import {syncGoogleHealthExercises} from '../dataSources/googleHealth/sync';
 import {syncImmichPhotos} from '../dataSources/immich/sync';
 import {syncSwarmCheckins} from '../dataSources/swarm/sync';
 import {REGION} from '../lib/googleOAuth';
-import {
-	foursquareClientSecret,
-	googleClientSecret,
-	immichApiKey,
-} from '../lib/secrets';
+import {foursquareClientSecret, googleClientSecret} from '../lib/secrets';
 
 // データソースは互いに独立しているため、1つの同期が失敗しても他の同期を止めない。
 const syncSources = [
@@ -23,7 +19,7 @@ export const scheduledSync = onSchedule(
 	{
 		schedule: 'every 3 hours',
 		region: REGION,
-		secrets: [googleClientSecret, foursquareClientSecret, immichApiKey],
+		secrets: [googleClientSecret, foursquareClientSecret],
 	},
 	async () => {
 		for (const source of syncSources) {

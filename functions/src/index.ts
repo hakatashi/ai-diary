@@ -7,6 +7,7 @@ export {
 	googleHealthOAuthCallback,
 } from './dataSources/googleHealth/oauth';
 export {importGoogleMapsTimelineChunk} from './dataSources/googleMapsTimeline/importChunk';
+export {connectImmich} from './dataSources/immich/connect';
 export {
 	beginSwarmOAuth,
 	swarmOAuthCallback,

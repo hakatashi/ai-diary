@@ -1,6 +1,6 @@
-// 自己ホストImmichサーバーのREST API。サーバーURLは IMMICH_SERVER_URL(APIベースURL、
-// 例: `https://immich.example.com/api`)で、各エンドポイントはこれに相対パスを連結して
-// 呼び出す。認証は `x-api-key` ヘッダ(IMMICH_API_KEY)。
+// 自己ホストImmichサーバーのREST API。サーバーURLは `dataSourceSecrets/immich` に保存された
+// APIベースURL(例: `https://immich.example.com/api`)で、各エンドポイントはこれに相対パスを
+// 連結して呼び出す。認証は `x-api-key` ヘッダ。
 // 参照: https://immich.app/docs/api/
 
 export interface ImmichAsset {
@@ -35,6 +35,21 @@ export interface AssetsPage {
 	items: ImmichAsset[];
 	nextPage: string | null;
 }
+
+/** APIキーが有効か・接続先が正しいImmichサーバーかを確認する。 */
+export const pingImmich = async (
+	serverUrl: string,
+	apiKey: string,
+): Promise<{email: string} | null> => {
+	const response = await fetch(`${serverUrl}/users/me`, {
+		headers: {'x-api-key': apiKey},
+	});
+	if (!response.ok) {
+		return null;
+	}
+	const body = (await response.json()) as {email?: string};
+	return {email: body.email ?? ''};
+};
 
 // `takenAfter`/`takenBefore` はISO 8601の日時文字列(タイムゾーンオフセット必須)のみ
 // サポートされ、日付のみの文字列は `Validation failed` になることを実接続で確認済み。

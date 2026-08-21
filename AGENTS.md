@@ -49,9 +49,9 @@ Firebaseプロジェクト: `hakatadiary`(`.firebaserc` に設定済み)。
 
 Google Cloud Secret Managerの無料枠(1プロジェクトあたり月間アクティブシークレットバージョン6個まで)を超えないよう、以下の方針で厳格に運用する:
 
-- **Secret Manager(`firebase functions:secrets:set` で登録、コードでは `defineSecret` で参照)**: アプリ全体で共有する静的なグローバル設定のみ。現在登録済みなのは `GEMINI_API_KEY`、`GOOGLE_CLIENT_SECRET`、`FOURSQUARE_OAUTH_CLIENT_SECRET`(Swarm連携用)、`GOOGLE_PLACES_API_KEY`(Google Maps Timelineの訪問先名称解決用)、`IMMICH_API_KEY`(Immich連携用)の5つ(合計5アクティブバージョン、予算6に対し残り1)。`FOURSQUARE_OAUTH_CLIENT_SECRET`/`GOOGLE_PLACES_API_KEY`/`IMMICH_API_KEY`は値が用意でき次第 `firebase functions:secrets:set` で登録する(下記「手動セットアップチェックリスト」参照。このリポジトリでのCLI操作では意図的に未設定のままにしてある)。予算が残り1のため、次に追加する秘密情報(フェーズ3のZaim等)は本当にSecret Managerが必要か特に慎重に検討すること。
-- **`GOOGLE_CLIENT_ID` / `FOURSQUARE_OAUTH_CLIENT_ID` / `IMMICH_SERVER_URL`**: 非秘匿情報(OAuthクライアントIDはリダイレクトURLにも露出する。ImmichサーバーURLは個人ドメインをやや露出するが、認証情報そのものではない)なので、Secret Managerを使わず `defineString`(`functions/src/lib/secrets.ts`)で扱う。値は `functions/.env.hakatadiary`(gitignore対象、Secret Managerの予算を消費しない)に置く。`IMMICH_SERVER_URL` は値が `.env.hakatadiary` に無いままエミュレータ起動・デプロイを行うとFirebase CLIが対話的に入力を求めて非対話環境で停止するため、`defineString(..., {default: ''})` で明示的に空文字をデフォルトにしている。
-- **`dataSourceSecrets/{dataSourceId}` コレクション(Firestore)**: 各データソース固有の認証情報(OAuthのrefresh tokenなど)。クライアントからは `firestore.rules` で完全に遮断(`allow read, write: if false;`)され、Cloud Functions(Admin SDK)からのみアクセス可能。新しいデータソースを追加する際は、この方式(Firestoreへの保存)をデフォルトとし、Secret Managerには追加しないこと。**例外: Immichはこのパターンを使わない。** OAuthのような複数ステップの認可フローが存在せず、単一の静的なAPIキーがサーバー全体の設定として固定されるため、GOOGLE_PLACES_API_KEYと同種の「アプリ全体のグローバル設定」とみなし、上記Secret Manager + defineStringの組み合わせで管理する(詳細はアーキテクチャ決定8を参照)。同様に将来「ユーザー入力を伴わない単一の静的資格情報」を追加する場合はこのImmichの前例に倣うことを検討し、逆にZaim等「OAuth的な複数ステップの認可フロー」を伴うものは`dataSourceSecrets`パターンをデフォルトとすること。
+- **Secret Manager(`firebase functions:secrets:set` で登録、コードでは `defineSecret` で参照)**: アプリ全体で共有する静的なグローバル設定のみ。現在登録済みなのは `GEMINI_API_KEY`、`GOOGLE_CLIENT_SECRET`、`FOURSQUARE_OAUTH_CLIENT_SECRET`(Swarm連携用)、`GOOGLE_PLACES_API_KEY`(Google Maps Timelineの訪問先名称解決用)の4つ(合計4アクティブバージョン、予算6に対しまだ余裕あり)。`FOURSQUARE_OAUTH_CLIENT_SECRET`/`GOOGLE_PLACES_API_KEY`は値が用意でき次第 `firebase functions:secrets:set` で登録する(下記「手動セットアップチェックリスト」参照。このリポジトリでのCLI操作では意図的に未設定のままにしてある)。
+- **`GOOGLE_CLIENT_ID` / `FOURSQUARE_OAUTH_CLIENT_ID`**: 非秘匿情報(OAuthクライアントIDはリダイレクトURLにも露出する)なので、Secret Managerを使わず `defineString`(`functions/src/lib/secrets.ts`)で扱う。値は `functions/.env.hakatadiary`(gitignore対象、Secret Managerの予算を消費しない)に置く。
+- **`dataSourceSecrets/{dataSourceId}` コレクション(Firestore)**: 各データソース固有の認証情報(OAuthのrefresh tokenなど)。クライアントからは `firestore.rules` で完全に遮断(`allow read, write: if false;`)され、Cloud Functions(Admin SDK)からのみアクセス可能。新しいデータソースを追加する際は、この方式(Firestoreへの保存)をデフォルトとし、Secret Managerには追加しないこと。
 
 新しいデータソースの秘密情報(Zaimのconsumer key/secret、Home Assistantの長期アクセストークン等)も、原則としてこの `dataSourceSecrets` パターンに従う。ユーザーがブラウザから直接入力する形の認証情報(APIキーなど)は、専用のCallable Functionを用意してAdmin SDK経由で書き込む設計にすること(クライアントから直接Firestoreに書き込ませない)。
 
@@ -113,7 +113,7 @@ Google Maps Timelineのエクスポート(Google Takeout等で取得する `Time
 
 当初フェーズ2ではGoogle Photosと連携していたが、2025年3月末にGoogleが `photoslibrary.readonly` などの広範な読み取りスコープを廃止し、既存ライブラリへの自動バックグラウンド同期が技術的に不可能になったため(参照: https://developers.google.com/photos/support/updates )、Picker APIによる都度手動インポートのみの実装になっていた。運用してみると手動インポートの手間が大きかったため、セルフホストの[Immich](https://immich.app/)への移行に伴いGoogle Photos連携を廃止し、Immich連携に置き換えた。
 
-Immichは自ホストサーバーでOAuthを持たず、ユーザー自身が発行した単一のAPIキーで認証する。**このため`dataSourceSecrets`経由のユーザー入力フロー(上記「秘密情報管理」の一般原則)はあえて採らず、GOOGLE_PLACES_API_KEYと同様にサーバー全体で共有する静的なグローバル設定として扱う。** APIキーは `IMMICH_API_KEY`(Secret Manager、`defineSecret`)、サーバーURL(例: `https://immich.example.com/api`)は `IMMICH_SERVER_URL`(非秘匿パラメータ、`defineString`)で設定し、`functions/src/dataSources/immich/sync.ts` がこれらを直接参照する。他のデータソースのような専用の「接続」Callableは存在せず、`dataSources/immich` ドキュメント自体も同期の初回成功/失敗時に `syncImmichPhotos` がその場で作成する。未設定の間は同期のたびにエラーとして記録され、`/data-sources` 画面でエラー内容を確認できる。`IMMICH_SERVER_URL` は空文字をデフォルトにしている(`functions/src/lib/secrets.ts`)。デフォルトを付けないと、値が `functions/.env.hakatadiary` に無い場合にFirebase CLIがエミュレータ起動時・デプロイ時に対話的な入力プロンプトを出し、非対話環境(自動テスト等)で固まってしまうことを実接続確認で発見したため。
+Immichは自ホストサーバーでOAuthを持たず、ユーザー自身が発行したAPIキーで認証する。**このため他のデータソースと異なりOAuthフローが不要で、`dataSourceSecrets/immich` の `credentialType` は `api_key`(サーバーURL・APIキーをそのままペイロードに保存)になる。** ユーザーがブラウザから直接入力する認証情報の一般原則(上記「秘密情報管理」参照)通り、専用のCallable Function `connectImmich`(`functions/src/dataSources/immich/connect.ts`)がAdmin SDK経由でFirestoreに書き込む。`connectImmich` は保存前に `GET {serverUrl}/users/me` を叩いてAPIキーの有効性を検証する。
 
 写真本体を自前でホストしているため、Google Photosと異なり**定期自動同期(`scheduledSync`)の対象に含まれる**(`functions/src/dataSources/immich/sync.ts` の `syncImmichPhotos`)。一覧取得には `POST {serverUrl}/search/metadata` を使う(`functions/src/dataSources/immich/client.ts`)。実接続で判明した仕様:
 
@@ -121,7 +121,6 @@ Immichは自ホストサーバーでOAuthを持たず、ユーザー自身が発
 - レスポンスは `{assets: {items: [...], nextPage: "2" | null}}` の形。`nextPage` を使ってページング。
 - 通常同期(3時間おき)は直近7日分のみ取得し、既存ドキュメントの `createdAt` を保持するため事前読み取りを行う(Google Calendar/Swarm同期と同方式)。手動の「全期間を同期」(`fullBackfill: true`)は暴走防止のためページ数上限(最大10,000件)を設け、Google Maps Timelineインポートと同様に事前読み取りを省いたバッチ書き込みで完結させる(この場合 `createdAt` も上書きされる)。
 - `localDateTime` フィールドは撮影地点の壁時計時刻を(実際のUTCではなく)`Z` 付きのISO文字列として返すImmich独自の仕様。`date` フィールドの算出にはこの文字列の日付部分をそのまま使い、Google Photos連携時のような固定タイムゾーン(Asia/Tokyo)での再計算はしない(`functions/src/dataSources/immich/normalize.ts`)。`startAt` には実際のUTC時刻である `fileCreatedAt` を使う。
-- **APIキーに必要な権限は `asset.read` のみ**(実接続で `asset.read` 単体スコープのキーを発行し `/api/search/metadata` が成功することを確認済み)。管理画面のAPIキー作成時に細かい権限選択肢(`asset.read`, `album.read`, `user.read` 等)が並ぶが、本アプリは写真メタデータの読み取りしか行わないため、最小権限の原則から `asset.read` のみを付与した専用キーを発行することを推奨する(`all` 等の広い権限は不要)。
 
 ## Google Health API連携(フェーズ1の実装詳細)
 
@@ -134,7 +133,7 @@ Immichは自ホストサーバーでOAuthを持たず、ユーザー自身が発
 
 ## 現時点で不足している認証情報(将来フェーズ用)
 
-フェーズ1・2は `.env`/`functions/.env.hakatadiary` の既存キー(`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GEMINI_API_KEY`, `FOURSQUARE_OAUTH_CLIENT_ID`, `FOURSQUARE_OAUTH_CLIENT_SECRET`)のみで完結している(Google Calendar/MapsはGOOGLE_CLIENT_ID/SECRETを再利用)。`GOOGLE_PLACES_API_KEY`/`IMMICH_API_KEY`/`IMMICH_SERVER_URL` はコードは実装済みだがまだ値が用意されておらず、登録が未完了(下記「手動セットアップチェックリスト」参照)。以下は将来フェーズで必要になる:
+フェーズ1・2は `.env`/`functions/.env.hakatadiary` の既存キー(`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GEMINI_API_KEY`, `FOURSQUARE_OAUTH_CLIENT_ID`, `FOURSQUARE_OAUTH_CLIENT_SECRET`)のみで完結している(Google Calendar/Photos/MapsはGOOGLE_CLIENT_ID/SECRETを再利用)。`GOOGLE_PLACES_API_KEY` はコードは実装済みだがまだ値が用意されておらず、Secret Managerへの登録が未完了(下記「手動セットアップチェックリスト」参照)。以下は将来フェーズで必要になる:
 
 - **フェーズ3**: ZaimのOAuth consumer key/secret(Moneyforwardは手動CSVエクスポートのみのためAPI認証情報は不要)
 - **フェーズ4**: Web Push用VAPIDキーペア
@@ -168,9 +167,8 @@ npx firebase deploy       # 本番デプロイ(hosting + firestore rules/indexes
 8. Google Cloud Console → APIs & Services → Library で **Places API (New)** を有効化し、APIキーを発行(Places API (New) の Place Details にのみ制限することを推奨)。発行したキーを `firebase functions:secrets:set GOOGLE_PLACES_API_KEY` でSecret Managerに登録する。未設定の間はGoogle Maps Timelineインポート時に場所名の代わりに緯度経度が表示される(フォールバック動作、インポート自体は失敗しない)。
 9. [Foursquare Developer Portal](https://foursquare.com/developers/apps) で作成済みのアプリの設定画面から、`https://asia-northeast1-hakatadiary.cloudfunctions.net/swarmOAuthCallback` をリダイレクトURIとして登録する。
 10. `firebase functions:secrets:set FOURSQUARE_OAUTH_CLIENT_SECRET` でSecret Managerに登録する(値は `.env` の `FOURSQUARE_OAUTH_CLIENT_SECRET` と同じ)。
-11. Immichサーバーの管理画面(Account Settings → API Keys)で、**権限を `asset.read` のみに絞った**APIキーを発行する(本アプリは写真メタデータの読み取りしか行わないため。実接続で `asset.read` 単体で `/api/search/metadata` が動作することを確認済み)。発行したキーを `firebase functions:secrets:set IMMICH_API_KEY` でSecret Managerに登録する。
-12. `firebase deploy` 時にサーバーURL(`IMMICH_SERVER_URL`、例: `https://immich.example.com/api`)を対話的に入力するプロンプトが出るので入力する(非秘匿パラメータのため一度入力すると `functions/.env.hakatadiary` に保存され、以降は再度聞かれない)。
-13. デプロイ後、`/data-sources` から各データソースの「接続」ボタン(Immichは「今すぐ同期」ボタン)で実際の接続確認を行う。特にSwarm(Foursquare API)は実フィールドが未検証のため、初回接続時にGoogle Health連携同様のトライアル&エラー修正が必要になる可能性が高い。
+11. Immichサーバーの管理画面(Account Settings → API Keys)でAPIキーを発行する。Secret Managerには登録せず、`/data-sources` の画面からサーバーURL(例: `https://immich.example.com/api`)とAPIキーを直接入力して接続する(`connectImmich` Callable経由で `dataSourceSecrets/immich` に保存される)。
+12. デプロイ後、`/data-sources` から各データソースの「接続」ボタンで実際の接続確認を行う。特にSwarm(Foursquare API)は実フィールドが未検証のため、初回接続時にGoogle Health連携同様のトライアル&エラー修正が必要になる可能性が高い。
 
 ## 既知の制約・今後の検討事項
 
