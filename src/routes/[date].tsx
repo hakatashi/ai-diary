@@ -118,7 +118,8 @@ const JournalPage = () => {
 		query(LogEntries, where('date', '==', params.date), orderBy('startAt')),
 	);
 	const entries = () => visibleLogEntries(logEntriesState).data ?? [];
-	const photoEntries = () => entries().filter((entry) => entry.category === 'photo');
+	const photoEntries = () =>
+		entries().filter((entry) => entry.category === 'photo');
 	const hasMapContent = () => entries().some((entry) => entry.location);
 
 	return (
