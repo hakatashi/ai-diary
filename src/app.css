@@ -194,3 +194,15 @@ textarea.input {
 .nav a[aria-current='page'] {
 	color: var(--color-accent);
 }
+
+/* 地図タイルのみグレースケール化し、マーカー・経路の彩色は保持する。 */
+.journal-map .leaflet-tile-pane {
+	filter: grayscale(1) contrast(1.1);
+}
+.journal-map .leaflet-tooltip {
+	font-family: var(--font-body);
+	font-size: 11px;
+	border-radius: 0;
+	border: none;
+	box-shadow: var(--shadow-sm);
+}

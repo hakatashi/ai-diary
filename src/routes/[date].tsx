@@ -13,7 +13,9 @@ import {
 	MapIcon,
 	PhotoIcon,
 } from '~/components/icons';
+import JournalMap from '~/components/JournalMap';
 import MemoEditor from '~/components/MemoEditor';
+import PhotoStrip from '~/components/PhotoStrip';
 import Collection from '~/lib/Collection';
 import {
 	formatJournalDate,
@@ -115,6 +117,9 @@ const JournalPage = () => {
 	const logEntriesState = useFirestore(() =>
 		query(LogEntries, where('date', '==', params.date), orderBy('startAt')),
 	);
+	const entries = () => visibleLogEntries(logEntriesState).data ?? [];
+	const photoEntries = () => entries().filter((entry) => entry.category === 'photo');
+	const hasMapContent = () => entries().some((entry) => entry.location);
 
 	return (
 		<Show
@@ -123,16 +128,23 @@ const JournalPage = () => {
 		>
 			<AppShell fullBleed dateNav={() => <DateNav date={params.date} />}>
 				<div class="flex h-full flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
-					<div
-						class="flex h-56 shrink-0 items-center justify-center border-divider border-b-2 bg-surface lg:h-full lg:w-1/2 lg:border-r-2 lg:border-b-0"
-						style="background-image:linear-gradient(var(--color-neutral-300) 1px, transparent 1px),linear-gradient(90deg, var(--color-neutral-300) 1px, transparent 1px);background-size:40px 40px;"
-					>
-						<div class="flex flex-col items-center gap-3 px-8 text-center">
-							<MapIcon size={28} class="text-text/35" />
-							<p class="max-w-xs text-[13px] text-text/55">
-								GPSログ・写真は今後のフェーズで追加予定です。
-							</p>
+					<div class="relative flex h-72 shrink-0 flex-col border-divider border-b-2 lg:h-full lg:w-1/2 lg:border-r-2 lg:border-b-0">
+						<div class="relative min-h-0 flex-1">
+							<JournalMap entries={entries()} />
+							<Show when={!hasMapContent()}>
+								<div class="pointer-events-none absolute inset-0 flex items-center justify-center bg-neutral-800/70">
+									<div class="flex flex-col items-center gap-3 px-8 text-center">
+										<MapIcon size={28} class="text-white/60" />
+										<p class="max-w-xs text-[13px] text-white/70">
+											この日の位置情報はまだありません。
+										</p>
+									</div>
+								</div>
+							</Show>
 						</div>
+						<Show when={photoEntries().length > 0}>
+							<PhotoStrip entries={photoEntries()} />
+						</Show>
 					</div>
 
 					<div class="flex flex-1 flex-col gap-6 px-7 pt-6 pb-10 lg:min-h-0 lg:w-1/2 lg:overflow-y-auto">

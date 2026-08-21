@@ -14,6 +14,7 @@ import {
 	type CollectionReference,
 } from 'firebase/firestore';
 import {connectFunctionsEmulator, getFunctions} from 'firebase/functions';
+import {connectStorageEmulator, getStorage} from 'firebase/storage';
 import type {DataSource, JournalEntry, LogEntry} from './schema.ts';
 
 const FUNCTIONS_REGION = 'asia-northeast1';
@@ -29,10 +30,13 @@ const db = getFirestore(app);
 
 const functions = getFunctions(app, FUNCTIONS_REGION);
 
+const storage = getStorage(app);
+
 if (import.meta.env.DEV && !isServer) {
 	connectFirestoreEmulator(db, 'localhost', 40615);
 	connectAuthEmulator(auth, 'http://localhost:9099');
 	connectFunctionsEmulator(functions, 'localhost', 5001);
+	connectStorageEmulator(storage, 'localhost', 9199);
 }
 
 const DataSources = collection(
@@ -57,6 +61,7 @@ export {
 	auth,
 	db,
 	functions,
+	storage,
 	DataSources,
 	LogEntries,
 	JournalEntries,
