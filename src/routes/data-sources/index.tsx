@@ -160,6 +160,8 @@ const GoogleMapsTimelineCard = () => {
 	const [counts, setCounts] = createSignal<{
 		visit: number;
 		activity: number;
+		path: number;
+		memory: number;
 	} | null>(null);
 	const [progress, setProgress] = createSignal<{
 		done: number;
@@ -185,7 +187,13 @@ const GoogleMapsTimelineCard = () => {
 			// 中断されても新しい(=直近の)データが優先的に取り込まれるよう、
 			// 日時が新しい順に並べ替えてからインポートする。
 			const filtered = segments
-				.filter((segment) => 'visit' in segment || 'activity' in segment)
+				.filter(
+					(segment) =>
+						'visit' in segment ||
+						'activity' in segment ||
+						'timelinePath' in segment ||
+						'timelineMemory' in segment,
+				)
 				.sort((a, b) => {
 					const aTime = Date.parse((a as {startTime?: string}).startTime ?? '');
 					const bTime = Date.parse((b as {startTime?: string}).startTime ?? '');
@@ -193,12 +201,19 @@ const GoogleMapsTimelineCard = () => {
 				});
 			const visitCount = filtered.filter((s) => 'visit' in s).length;
 			const activityCount = filtered.filter((s) => 'activity' in s).length;
+			const pathCount = filtered.filter((s) => 'timelinePath' in s).length;
+			const memoryCount = filtered.filter((s) => 'timelineMemory' in s).length;
 			if (filtered.length === 0) {
 				setError('インポート可能な訪問記録・移動記録が見つかりませんでした。');
 				return;
 			}
 			setPendingSegments(filtered);
-			setCounts({visit: visitCount, activity: activityCount});
+			setCounts({
+				visit: visitCount,
+				activity: activityCount,
+				path: pathCount,
+				memory: memoryCount,
+			});
 		} catch {
 			setError(
 				'ファイルの読み込みに失敗しました。有効なタイムラインのエクスポートJSONか確認してください。',
@@ -295,8 +310,10 @@ const GoogleMapsTimelineCard = () => {
 							}
 						>
 							<p class="text-[13px]">
-								訪問記録 {c().visit}件・移動記録 {c().activity}件(合計{' '}
-								{c().visit + c().activity}件)をインポートします。よろしいですか?
+								訪問記録 {c().visit}件・移動記録 {c().activity}件・GPS経路{' '}
+								{c().path}件・思い出メモ {c().memory}件(合計{' '}
+								{c().visit + c().activity + c().path + c().memory}
+								件)をインポートします。よろしいですか?
 							</p>
 							<div class="flex gap-2">
 								<button

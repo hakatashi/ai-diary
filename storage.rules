@@ -1,0 +1,16 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isOwner() {
+      return request.auth != null
+        && request.auth.token.email == 'hakatasiloving@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    match /gpsTracks/{allPaths=**} {
+      allow read: if isOwner();
+      allow write: if false;
+    }
+  }
+}
