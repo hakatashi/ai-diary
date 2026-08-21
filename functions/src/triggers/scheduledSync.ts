@@ -2,6 +2,7 @@ import {error as logError} from 'firebase-functions/logger';
 import {onSchedule} from 'firebase-functions/scheduler';
 import {syncGoogleCalendarEvents} from '../dataSources/googleCalendar/sync';
 import {syncGoogleHealthExercises} from '../dataSources/googleHealth/sync';
+import {syncImmichPhotos} from '../dataSources/immich/sync';
 import {syncSwarmCheckins} from '../dataSources/swarm/sync';
 import {REGION} from '../lib/googleOAuth';
 import {foursquareClientSecret, googleClientSecret} from '../lib/secrets';
@@ -11,6 +12,7 @@ const syncSources = [
 	{name: 'google_health', run: () => syncGoogleHealthExercises()},
 	{name: 'google_calendar', run: () => syncGoogleCalendarEvents()},
 	{name: 'swarm', run: () => syncSwarmCheckins({fullBackfill: false})},
+	{name: 'immich', run: () => syncImmichPhotos({fullBackfill: false})},
 ];
 
 export const scheduledSync = onSchedule(

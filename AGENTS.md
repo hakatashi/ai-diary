@@ -13,7 +13,7 @@
 一度に全機能を実装せず、以下のフェーズに分けて開発する。進捗はGitHub Project「[ai-diary 開発ロードマップ](https://github.com/users/hakatashi/projects/2)」のkanbanボードで管理する(フェーズ単位のカードのみ、個別タスクはカード化しない)。
 
 - **フェーズ1(実装済み)**: 認証基盤 + Google Health API連携(運動記録) + 日誌基本機能
-- **フェーズ2(実装済み)**: 追加データソース(Google Calendar, Google Maps Timeline, Swarm, Google Photos)+ カレンダービュー・一覧ビュー + データソース間の意味的重複の統合
+- **フェーズ2(実装済み)**: 追加データソース(Google Calendar, Google Maps Timeline, Swarm, Immich)+ カレンダービュー・一覧ビュー + データソース間の意味的重複の統合
 - **フェーズ3**: 家計簿統合(Zaim API + Moneyforward CSVエクスポート)、重複排除・統合アルゴリズム、支出分析、手動ルールによる自動振り分け
 - **フェーズ4**: AIパートナー機能(Gemini API連携、自動メッセージ生成、チャット、複数ペルソナ、長期記憶、Web Push配信)
 - **フェーズ5**: 残りのデータソース(Home Assistant、SNS)、全体の仕上げ・拡張
@@ -76,7 +76,7 @@ placesApiUsage/{yyyy-mm}         -- Places APIの月間呼び出し回数カウ�
 - `raw`: 元データをほぼそのまま保持(再要約・再処理に備える。ドキュメント1MiB上限に注意。GPSトラック等大容量データはraw格納方法を将来再検討する必要がある)
 - `hidden` / `dedupedInto`: 意味的重複統合(下記)で他エントリに吸収された場合に `hidden: true` かつ `dedupedInto` に統合先の `logEntryId` を設定する。**削除はしない**(生データは保持し、統合ロジックの見直しで復元できるようにする)。クライアント側の一覧系クエリは `hidden === true` のエントリを表示しない(`src/lib/logEntries.ts` の `visibleLogEntries`/`isVisible` で統一的にフィルタする。Firestoreの `!=` フィルタはフィールド欠如ドキュメントを暗黙に除外してしまうため、あえてクエリではなくクライアント側フィルタとしている)。
 
-**意味的に重複するデータソース(Google Mapsの訪問履歴とSwarmのチェックインなど)の名寄せは `functions/src/dataSources/dedup/dedupeVisitsAndCheckins.ts` で実装済み。** `sourceType === 'google_maps_visit'` のエントリと `category === 'checkin'`(Swarm)のエントリについて、`startAt` の差が20分以内かつ位置(haversine距離)が200m以内の場合に同一訪問イベントとみなし、Swarm側を `hidden` にする。Swarm同期後・Maps Timelineインポート後に対象日付で自動実行されるほか、`/data-sources` の「メンテナンス」セクションから任意の日付範囲で手動再実行できる(`dedupeLogEntriesNow` Callable)。他の組み合わせ(例: Google Calendarの予定とGoogle Photosの写真)の統合は未実装で、将来のフェーズで検討する。
+**意味的に重複するデータソース(Google Mapsの訪問履歴とSwarmのチェックインなど)の名寄せは `functions/src/dataSources/dedup/dedupeVisitsAndCheckins.ts` で実装済み。** `sourceType === 'google_maps_visit'` のエントリと `category === 'checkin'`(Swarm)のエントリについて、`startAt` の差が20分以内かつ位置(haversine距離)が200m以内の場合に同一訪問イベントとみなし、Swarm側を `hidden` にする。Swarm同期後・Maps Timelineインポート後に対象日付で自動実行されるほか、`/data-sources` の「メンテナンス」セクションから任意の日付範囲で手動再実行できる(`dedupeLogEntriesNow` Callable)。他の組み合わせ(例: Google Calendarの予定とImmichの写真)の統合は未実装で、将来のフェーズで検討する。
 
 ### 4. Cloud Functions: Cookie不要のCallable Functions中心設計
 
@@ -90,7 +90,7 @@ placesApiUsage/{yyyy-mm}         -- Places APIの月間呼び出し回数カウ�
 
 ### 6. Google OAuth連携の共通化(`functions/src/lib/googleOAuth.ts`)
 
-Google Health(フェーズ1)に加え、フェーズ2でGoogle Calendar・Google Photosの2つのGoogle OAuth連携が増えたため、「state発行→認可URL生成→コールバックでtoken交換→`dataSources`/`dataSourceSecrets`更新」という一連の流れを `createGoogleOAuthFlow({dataSourceId, displayName, category, scope, callbackFunctionName})` ファクトリに共通化した。各データソースの `oauth.ts` はこのファクトリを呼び出して `beginXxxOAuth`/`xxxOAuthCallback` を生成するだけでよい。`callbackFunctionName` は `functions/src/index.ts` でのexport名(=実際にデプロイされる関数名)と一致させる必要がある(リダイレクトURIの構築に使うため)。また、refresh tokenからaccess tokenを取得する `getGoogleAccessToken` も同ファイルで共通化し、各データソースの `client.ts`/`picker.ts` から利用する。
+Google Health(フェーズ1)に加え、フェーズ2でGoogle Calendarとの新しいGoogle OAuth連携が増えたため、「state発行→認可URL生成→コールバックでtoken交換→`dataSources`/`dataSourceSecrets`更新」という一連の流れを `createGoogleOAuthFlow({dataSourceId, displayName, category, scope, callbackFunctionName})` ファクトリに共通化した。各データソースの `oauth.ts` はこのファクトリを呼び出して `beginXxxOAuth`/`xxxOAuthCallback` を生成するだけでよい。`callbackFunctionName` は `functions/src/index.ts` でのexport名(=実際にデプロイされる関数名)と一致させる必要がある(リダイレクトURIの構築に使うため)。また、refresh tokenからaccess tokenを取得する `getGoogleAccessToken` も同ファイルで共通化し、各データソースの `client.ts` から利用する。なお、ImmichはOAuthを持たずAPIキー認証のみのため、このファクトリは使わない(詳細は下記アーキテクチャ決定8を参照)。
 
 Swarm(Foursquare)はGoogleとは無関係の独自OAuth2フローのため、このファクトリは使わず `functions/src/dataSources/swarm/oauth.ts` に個別実装している。Foursquareのアクセストークンは(v2 APIでは)明示的に失効しないため、refresh tokenの概念がなく `credentialType: 'oauth2_access_token'` として `payload.accessToken` をそのまま保存する。
 
@@ -109,13 +109,18 @@ Google Maps Timelineのエクスポート(Google Takeout等で取得する `Time
   - リクエストには `languageCode=ja`/`regionCode=JP` を付与し、`displayName` 等が日本語で返るようにしている。`displayName` を要求した時点でPro SKU料金が発生するため、同じ呼び出しの中で追加費用なく取得できるEssentials/Essentials IDs Only/Pro SKUの主要フィールド(`formattedAddress`, `location`, `types`, `primaryType`, `businessStatus`, `googleMapsUri` 等)をまとめて取得し、レスポンス全体を `placesCache.raw` に保存している(同じ場所について2度目のAPI呼び出しが発生しないようにするため。フィールド一覧は `functions/src/dataSources/googleMapsTimeline/placesClient.ts` の `FIELD_MASK` 参照)。
 - 冪等性: `logEntryId` はセグメントの `startTime`/`endTime`/`placeId`(または距離)からのハッシュで決定的に生成されるため、同じエクスポートファイルを再アップロードしても重複しない。ただし大量書き込みのパフォーマンスを優先し、既存ドキュメントの `createdAt` を保持するための事前読み取りは行わず、再インポート時は `createdAt` も上書きする(このデータソースに限った簡略化)。
 
-### 8. Google Photosは自動同期不可・Picker APIによる手動インポートのみ
+### 8. 写真データソースはImmich(自己ホスト)。API キー認証・定期自動同期対応
 
-2025年3月末にGoogleが `photoslibrary.readonly` などの広範な読み取りスコープを廃止し、以降はアプリが作成したコンテンツ以外の既存ライブラリへの自動バックグラウンド同期は技術的に不可能になった(参照: https://developers.google.com/photos/support/updates )。そのため本アプリのGoogle Photos連携は **Picker API による都度手動インポートのみ**とし、他データソースのような定期自動同期の対象には含めていない。
+当初フェーズ2ではGoogle Photosと連携していたが、2025年3月末にGoogleが `photoslibrary.readonly` などの広範な読み取りスコープを廃止し、既存ライブラリへの自動バックグラウンド同期が技術的に不可能になったため(参照: https://developers.google.com/photos/support/updates )、Picker APIによる都度手動インポートのみの実装になっていた。運用してみると手動インポートの手間が大きかったため、セルフホストの[Immich](https://immich.app/)への移行に伴いGoogle Photos連携を廃止し、Immich連携に置き換えた。
 
-フロー: `beginGooglePhotosPickerSession`(Callable)でPickerセッションを作成 → クライアントが `pickerUri` を新規タブで開く → `getGooglePhotosPickerSessionStatus` を3秒間隔でポーリングし選択完了を検知 → `importGooglePhotosSelection` で選択されたメディアを取得・正規化・保存、という3つのCallableで完結する。選択されたメディアの `baseUrl` は短時間(目安60分程度)で失効するため、恒久的なサムネイル表示が必要になった場合は別途の再取得手段を検討する必要がある(現時点では未実装)。
+Immichは自ホストサーバーでOAuthを持たず、ユーザー自身が発行したAPIキーで認証する。**このため他のデータソースと異なりOAuthフローが不要で、`dataSourceSecrets/immich` の `credentialType` は `api_key`(サーバーURL・APIキーをそのままペイロードに保存)になる。** ユーザーがブラウザから直接入力する認証情報の一般原則(上記「秘密情報管理」参照)通り、専用のCallable Function `connectImmich`(`functions/src/dataSources/immich/connect.ts`)がAdmin SDK経由でFirestoreに書き込む。`connectImmich` は保存前に `GET {serverUrl}/users/me` を叩いてAPIキーの有効性を検証する。
 
-**OAuthスコープは `photospicker.mediaitems.readonly` を使う。** 実接続で `photospicker.readonly` は `Some requested scopes were invalid` エラーになることが判明したため修正済み(`functions/src/dataSources/googlePhotos/oauth.ts`)。
+写真本体を自前でホストしているため、Google Photosと異なり**定期自動同期(`scheduledSync`)の対象に含まれる**(`functions/src/dataSources/immich/sync.ts` の `syncImmichPhotos`)。一覧取得には `POST {serverUrl}/search/metadata` を使う(`functions/src/dataSources/immich/client.ts`)。実接続で判明した仕様:
+
+- `takenAfter`/`takenBefore` フィルタは日付のみの文字列(`YYYY-MM-DD`)ではエラーになり、**タイムゾーンオフセット付きのISO 8601日時文字列(例: `2026-08-01T00:00:00.000Z`)が必須**。
+- レスポンスは `{assets: {items: [...], nextPage: "2" | null}}` の形。`nextPage` を使ってページング。
+- 通常同期(3時間おき)は直近7日分のみ取得し、既存ドキュメントの `createdAt` を保持するため事前読み取りを行う(Google Calendar/Swarm同期と同方式)。手動の「全期間を同期」(`fullBackfill: true`)は暴走防止のためページ数上限(最大10,000件)を設け、Google Maps Timelineインポートと同様に事前読み取りを省いたバッチ書き込みで完結させる(この場合 `createdAt` も上書きされる)。
+- `localDateTime` フィールドは撮影地点の壁時計時刻を(実際のUTCではなく)`Z` 付きのISO文字列として返すImmich独自の仕様。`date` フィールドの算出にはこの文字列の日付部分をそのまま使い、Google Photos連携時のような固定タイムゾーン(Asia/Tokyo)での再計算はしない(`functions/src/dataSources/immich/normalize.ts`)。`startAt` には実際のUTC時刻である `fileCreatedAt` を使う。
 
 ## Google Health API連携(フェーズ1の実装詳細)
 
@@ -160,17 +165,16 @@ npx firebase deploy       # 本番デプロイ(hosting + firestore rules/indexes
 6. Google Cloud Console → APIs & Services → Library で **Google Calendar API** を有効化し、OAuth consent screenのスコープに `calendar.readonly` を追加。
 7. Google Cloud Console → Credentials → 既存OAuthクライアントに `https://asia-northeast1-hakatadiary.cloudfunctions.net/googleCalendarOAuthCallback` をリダイレクトURIとして追加。
 8. Google Cloud Console → APIs & Services → Library で **Places API (New)** を有効化し、APIキーを発行(Places API (New) の Place Details にのみ制限することを推奨)。発行したキーを `firebase functions:secrets:set GOOGLE_PLACES_API_KEY` でSecret Managerに登録する。未設定の間はGoogle Maps Timelineインポート時に場所名の代わりに緯度経度が表示される(フォールバック動作、インポート自体は失敗しない)。
-9. Google Cloud Console → APIs & Services → Library で **Google Photos Picker API** を有効化し、OAuth consent screenのスコープに `photospicker.readonly` を追加。
-10. Google Cloud Console → Credentials → 既存OAuthクライアントに `https://asia-northeast1-hakatadiary.cloudfunctions.net/googlePhotosOAuthCallback` をリダイレクトURIとして追加。
-11. [Foursquare Developer Portal](https://foursquare.com/developers/apps) で作成済みのアプリの設定画面から、`https://asia-northeast1-hakatadiary.cloudfunctions.net/swarmOAuthCallback` をリダイレクトURIとして登録する。
-12. `firebase functions:secrets:set FOURSQUARE_OAUTH_CLIENT_SECRET` でSecret Managerに登録する(値は `.env` の `FOURSQUARE_OAUTH_CLIENT_SECRET` と同じ)。
-13. デプロイ後、`/data-sources` から各データソースの「接続」ボタンで実際の接続確認を行う。特にSwarm(Foursquare API)は実フィールドが未検証のため、初回接続時にGoogle Health連携同様のトライアル&エラー修正が必要になる可能性が高い。
+9. [Foursquare Developer Portal](https://foursquare.com/developers/apps) で作成済みのアプリの設定画面から、`https://asia-northeast1-hakatadiary.cloudfunctions.net/swarmOAuthCallback` をリダイレクトURIとして登録する。
+10. `firebase functions:secrets:set FOURSQUARE_OAUTH_CLIENT_SECRET` でSecret Managerに登録する(値は `.env` の `FOURSQUARE_OAUTH_CLIENT_SECRET` と同じ)。
+11. Immichサーバーの管理画面(Account Settings → API Keys)でAPIキーを発行する。Secret Managerには登録せず、`/data-sources` の画面からサーバーURL(例: `https://immich.example.com/api`)とAPIキーを直接入力して接続する(`connectImmich` Callable経由で `dataSourceSecrets/immich` に保存される)。
+12. デプロイ後、`/data-sources` から各データソースの「接続」ボタンで実際の接続確認を行う。特にSwarm(Foursquare API)は実フィールドが未検証のため、初回接続時にGoogle Health連携同様のトライアル&エラー修正が必要になる可能性が高い。
 
 ## 既知の制約・今後の検討事項
 
 - Google Maps Timelineの `semanticSegments` のうち `timelinePath`(生GPSトラック)・`timelineMemory`(思い出メモ)、および `rawSignals`/`userLocationProfile` はフェーズ2では未取込。`visit`/`activity` のみを `logEntries` 化している。生GPSトラックをFirestoreドキュメント1MiB上限内でどう格納するか(間引き、サブコレクション分割等)は依然未検討で、地図上への経路描画機能を実装する際に再設計が必要になる。
-- Google Photosは2025年3月のAPI仕様変更によりPicker APIでの都度手動インポートのみ対応。定期自動同期は技術的に不可能(詳細は上記アーキテクチャ決定8を参照)。Picker選択直後に保存する `baseUrl` は短時間で失効するため、恒久的なサムネイル表示は未実装。
+- Immichの自己ホストサーバーがネットワーク的にCloud Functionsから到達可能であることが前提(リバースプロキシ・DDNS等はユーザー側の運用に依存し、コード化不可)。サーバーが到達不能な間は同期が `error` ステータスになるのみで、リトライは次回のスケジュール実行を待つ簡易的な設計。
 - Swarm(Foursquare v2 API `/v2/users/self/checkins`)のレスポンス実フィールドはドキュメントからの推定で実装しており未検証。初回実接続時にGoogle Health連携同様のトライアル&エラー修正が必要になる可能性が高い。また同エンドポイントを含むv2レガシーAPIは2026年5月15日に廃止予定とFoursquareが告知しており、将来的な再移行が必要になる見込み。
-- 複数データソース間の意味的重複統合は、Google Maps訪問記録⇔Swarmチェックインの組み合わせのみ実装済み(`functions/src/dataSources/dedup/dedupeVisitsAndCheckins.ts`)。しきい値(20分/200m)は保守的な初期値であり、実データでの調整が必要になる可能性がある。Google Calendarの予定⇔Google Photosの写真など、他の組み合わせの統合は未実装。
+- 複数データソース間の意味的重複統合は、Google Maps訪問記録⇔Swarmチェックインの組み合わせのみ実装済み(`functions/src/dataSources/dedup/dedupeVisitsAndCheckins.ts`)。しきい値(20分/200m)は保守的な初期値であり、実データでの調整が必要になる可能性がある。Google Calendarの予定⇔Immichの写真など、他の組み合わせの統合は未実装。
 - AIパートナーの複数ペルソナ・長期記憶のFirestoreスキーマはフェーズ4で設計する(現時点では未着手)。
 - `firestore.rules` の自動テスト(`@firebase/rules-unit-testing`)は未整備。将来的に追加を検討する。

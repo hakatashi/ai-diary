@@ -16,7 +16,7 @@ export type DataSourceType =
 	| 'google_calendar'
 	| 'google_maps_timeline'
 	| 'swarm'
-	| 'google_photos';
+	| 'immich';
 
 export type DataSourceStatus =
 	| 'connected'
@@ -46,7 +46,7 @@ export type LogEntrySourceType =
 	| 'google_maps_visit'
 	| 'google_maps_activity'
 	| 'swarm_checkin'
-	| 'google_photos_photo';
+	| 'immich_photo';
 
 export type LogEntryCategory =
 	| 'exercise'
