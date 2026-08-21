@@ -1,3 +1,4 @@
+import {error as logError} from 'firebase-functions/logger';
 import {getGoogleAccessToken} from '../../lib/googleOAuth';
 
 const API_BASE_URL = 'https://health.googleapis.com/v4';
@@ -73,4 +74,34 @@ export const listExercises = async (
 	} while (pageToken);
 
 	return results;
+};
+
+// exercise dataPointのGPSトラックはカスタムメソッド exportExerciseTcx で
+// TCX(Training Center XML)形式として取得する(listExercises/dataPointsのレスポンスには
+// 座標は含まれない)。`?alt=media` を付けないとTCX本体ではなく
+// `{tcxData: "..."}` というJSONラッパーが返るため必ず付与する。
+// このメソッドは activity_and_fitness スコープに加えて location スコープが必要
+// (実接続調査で判明。未同意の場合は403になるため呼び出し元でnull扱いにフォールバックする)。
+export const fetchExerciseTcx = async (
+	refreshToken: string,
+	dataPointName: string,
+): Promise<string | null> => {
+	const accessToken = await getGoogleAccessToken(refreshToken);
+	const url = new URL(
+		`${API_BASE_URL}/${dataPointName}:exportExerciseTcx`,
+	);
+	url.searchParams.set('alt', 'media');
+
+	const response = await fetch(url, {
+		headers: {Authorization: `Bearer ${accessToken}`},
+	});
+
+	if (!response.ok) {
+		logError(
+			`Google Health TCX export failed for ${dataPointName}: ${response.status} ${await response.text()}`,
+		);
+		return null;
+	}
+
+	return await response.text();
 };

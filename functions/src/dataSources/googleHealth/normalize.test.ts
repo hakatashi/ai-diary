@@ -1,0 +1,85 @@
+import {expect, test, vi} from 'vitest';
+
+const saveGpsTrackMock = vi.fn().mockResolvedValue({
+	storagePath: 'gpsTracks/google_health_exercise/mock.json.gz',
+	pointCount: 2,
+	distanceMeters: 42,
+	boundingBox: {minLat: 35.68, maxLat: 35.69, minLng: 139.76, maxLng: 139.77},
+});
+vi.mock('../../lib/gpsTrackStorage', () => ({
+	saveGpsTrack: saveGpsTrackMock,
+}));
+
+const {attachGpsTrack, getDataPointName, mayHaveGpsTrack, normalizeExercise} =
+	await import('./normalize.ts');
+
+const baseRaw = {
+	name: 'users/me/dataTypes/exercise/dataPoints/123',
+	exercise: {
+		interval: {
+			startTime: '2026-07-05T01:00:00.000Z',
+			endTime: '2026-07-05T01:30:00.000Z',
+		},
+		exerciseType: 'RUNNING',
+		metricsSummary: {
+			caloriesKcal: 200,
+			distanceMillimeters: 5000000,
+		},
+	},
+};
+
+test('normalizeExercise builds a logEntry from an exercise data point', () => {
+	const {id, entry} = normalizeExercise(baseRaw);
+	expect(id).toMatch(/^[0-9a-f]{64}$/);
+	expect(entry.sourceType).toBe('google_health_exercise');
+	expect(entry.title).toBe('ランニング');
+	expect(entry.metrics?.distanceMeters).toBe(5000);
+	expect(entry.location).toBeNull();
+});
+
+test('mayHaveGpsTrack is true when the exercise has a distance metric', () => {
+	expect(mayHaveGpsTrack(baseRaw)).toBe(true);
+});
+
+test('mayHaveGpsTrack is false for exercises without a distance metric (e.g. strength training)', () => {
+	const raw = {
+		name: 'users/me/dataTypes/exercise/dataPoints/456',
+		exercise: {
+			interval: {startTime: '2026-07-05T01:00:00.000Z'},
+			exerciseType: 'STRENGTH_TRAINING',
+			metricsSummary: {caloriesKcal: 100},
+		},
+	};
+	expect(mayHaveGpsTrack(raw)).toBe(false);
+});
+
+test('getDataPointName returns the dataPoint resource name', () => {
+	expect(getDataPointName(baseRaw)).toBe(
+		'users/me/dataTypes/exercise/dataPoints/123',
+	);
+});
+
+test('attachGpsTrack uploads points via saveGpsTrack and merges location/raw.gpsTrack', async () => {
+	const normalized = normalizeExercise(baseRaw);
+	const result = await attachGpsTrack(normalized, [
+		{lat: 35.68, lng: 139.76, time: '2026-07-05T01:00:00.000Z'},
+		{lat: 35.69, lng: 139.77, time: '2026-07-05T01:01:00.000Z'},
+	]);
+
+	expect(saveGpsTrackMock).toHaveBeenCalledWith(
+		`gpsTracks/google_health_exercise/${normalized.id}.json.gz`,
+		[
+			{lat: 35.68, lng: 139.76, time: '2026-07-05T01:00:00.000Z'},
+			{lat: 35.69, lng: 139.77, time: '2026-07-05T01:01:00.000Z'},
+		],
+	);
+	expect(result.entry.location?.latitude).toBeCloseTo(35.68);
+	expect(result.entry.location?.longitude).toBeCloseTo(139.76);
+	expect(result.entry.raw.gpsTrack).toEqual({
+		storagePath: 'gpsTracks/google_health_exercise/mock.json.gz',
+		pointCount: 2,
+		boundingBox: {minLat: 35.68, maxLat: 35.69, minLng: 139.76, maxLng: 139.77},
+	});
+	// 元のexerciseの生データは失わずraw内に保持される。
+	expect(result.entry.raw.exercise).toEqual(baseRaw.exercise);
+});

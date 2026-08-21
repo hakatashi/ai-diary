@@ -2,9 +2,15 @@ import {Timestamp} from 'firebase-admin/firestore';
 import {error as logError, info as logInfo} from 'firebase-functions/logger';
 import {db} from '../../lib/firebaseAdmin';
 import type {DataSourceSecret} from '../types';
-import {listExercises} from './client';
-import {normalizeExercise} from './normalize';
+import {fetchExerciseTcx, listExercises} from './client';
+import {
+	attachGpsTrack,
+	getDataPointName,
+	mayHaveGpsTrack,
+	normalizeExercise,
+} from './normalize';
 import {DATA_SOURCE_ID} from './oauth';
+import {parseTcxTrackpoints} from './tcx';
 
 const DEFAULT_LOOKBACK_DAYS = 7;
 
@@ -27,21 +33,31 @@ export const syncGoogleHealthExercises = async (): Promise<void> => {
 		logError('Google Health secret is missing a refresh token.');
 		return;
 	}
+	const refreshToken = secret.payload.refreshToken;
 
 	try {
 		const endTime = now.toDate();
 		const startTime = new Date(
 			endTime.getTime() - DEFAULT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
 		);
-		const rawExercises = await listExercises(
-			secret.payload.refreshToken,
-			startTime,
-			endTime,
-		);
+		const rawExercises = await listExercises(refreshToken, startTime, endTime);
 
 		await Promise.all(
 			rawExercises.map(async (raw) => {
-				const {id, entry} = normalizeExercise(raw);
+				let normalized = normalizeExercise(raw);
+
+				if (mayHaveGpsTrack(raw)) {
+					const dataPointName = getDataPointName(raw);
+					if (dataPointName) {
+						const tcx = await fetchExerciseTcx(refreshToken, dataPointName);
+						const points = tcx ? parseTcxTrackpoints(tcx) : [];
+						if (points.length > 0) {
+							normalized = await attachGpsTrack(normalized, points);
+						}
+					}
+				}
+
+				const {id, entry} = normalized;
 				const ref = db.collection('logEntries').doc(id);
 				const existing = await ref.get();
 				await ref.set(
