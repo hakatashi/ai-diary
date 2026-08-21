@@ -1,6 +1,7 @@
 import {createHash} from 'node:crypto';
-import {Timestamp} from 'firebase-admin/firestore';
+import {GeoPoint, Timestamp} from 'firebase-admin/firestore';
 import type {LogEntry} from '../../../../src/lib/schema.ts';
+import {type GpsTrackPoint, saveGpsTrack} from '../../lib/gpsTrackStorage';
 import type {RawExerciseDataPoint} from './client';
 
 const TIME_ZONE = 'Asia/Tokyo';
@@ -63,6 +64,53 @@ export interface NormalizedExercise {
 	id: string;
 	entry: Omit<LogEntry, 'createdAt' | 'updatedAt' | 'dataSourceId'>;
 }
+
+// exportExerciseTcx呼び出しはAPI往復コストがあるため、GPSが存在する見込みが薄い
+// エクササイズ(手動ログ・屋内種目等、距離メトリクスを持たないもの)には試みない。
+// Google Health APIのExerciseMetadataにGPS有無を示す専用フィールドがあるかは実接続で
+// 確認できなかったため、距離メトリクスの有無という保守的な指標で絞り込む。
+export const mayHaveGpsTrack = (raw: RawExerciseDataPoint): boolean => {
+	const point = raw as unknown as ExerciseDataPoint;
+	return point.exercise.metricsSummary?.distanceMillimeters !== undefined;
+};
+
+export const getDataPointName = (
+	raw: RawExerciseDataPoint,
+): string | undefined => {
+	const point = raw as unknown as ExerciseDataPoint;
+	return point.name;
+};
+
+/**
+ * TCXエクスポートから得たGPS点列をFirebase Storageに保存し、そのメタデータ
+ * (storagePath/pointCount/boundingBox)とlocationを正規化済みエントリに合成する。
+ * 点列本体はlogEntryに含めない(gpsTrackStorage.tsのsaveGpsTrack参照)。
+ */
+export const attachGpsTrack = async (
+	normalized: NormalizedExercise,
+	points: GpsTrackPoint[],
+): Promise<NormalizedExercise> => {
+	const track = await saveGpsTrack(
+		`gpsTracks/google_health_exercise/${normalized.id}.json.gz`,
+		points,
+	);
+
+	return {
+		id: normalized.id,
+		entry: {
+			...normalized.entry,
+			location: new GeoPoint(points[0].lat, points[0].lng),
+			raw: {
+				...normalized.entry.raw,
+				gpsTrack: {
+					storagePath: track.storagePath,
+					pointCount: track.pointCount,
+					boundingBox: track.boundingBox,
+				},
+			},
+		},
+	};
+};
 
 // レスポンスの実際のJSONスキーマ(users.dataTypes.dataPoints リソース)に基づく変換。
 // 参照: https://developers.google.com/health/reference/rest/v4/users.dataTypes.dataPoints

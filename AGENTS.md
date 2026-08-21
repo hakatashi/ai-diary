@@ -127,12 +127,13 @@ Immichは自ホストサーバーでOAuthを持たず、ユーザー自身が発
 
 ## Google Health API連携(フェーズ1の実装詳細)
 
-- Fitbit Web APIの後継API(`developers.google.com/health`)。運動記録の読み取りスコープは `https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly`。
+- Fitbit Web APIの後継API(`developers.google.com/health`)。運動記録の読み取りスコープは `https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly`。GPSトラック取得(下記参照)には `https://www.googleapis.com/auth/googlehealth.location.readonly` も追加で要求する。
 - OAuth 2.0の認可コードフロー(`access_type=offline`, `prompt=consent`)でrefresh tokenを取得し、`dataSourceSecrets/google_health` に保存する。
 - **個人利用目的はGoogleの検証審査(OAuth consent screen verification)が免除されるが、公開ステータスを「テスト中」のままにするとrefresh tokenが7日で失効する。** 本番運用には公開ステータスを「本番」に変更する必要があり、この作業はユーザー自身がGoogle Cloud Consoleで実施する(コード化不可)。
 - **`dataPoints.list` の時間範囲指定は素朴なクエリパラメータ(`startTime`/`endTime`)ではなく、AIP-160形式の `filter` パラメータで行う。** 実接続で `Unknown name "startTime"` エラーが発生したため確認・修正済み。さらに、Session種別のデータタイプ(sleep/ECGを除く)では `interval.start_time`/`interval.end_time` 自体がフィルタ不可(`INVALID_DATA_POINT_FILTER`)で、**`{type}.interval.civil_start_time`(値はcivil dateのプレーンな日付文字列、例 `"2026-07-05"`)のみがサポートされる**ことも実接続のエラーで判明し修正済み。**さらに `civil_start_time` は `GREATER_THAN_EQUALS` と `LESS_THAN` の2つのコンパレータしかサポートせず、`<=` を使うと `INVALID_DATA_POINT_FILTER_RESTRICTION_COMPARATOR` エラーになる**ことも実接続で判明した(フェーズ2のテスト中に発覚・修正)。同期対象の最終日を含めるため、上限には `endTime` の**翌日**の日付を排他境界(`<`)として使う。正しい構文は `exercise.interval.civil_start_time >= "2026-07-05" AND exercise.interval.civil_start_time < "2026-07-13"`(終了日が `2026-07-12` の場合。`functions/src/dataSources/googleHealth/client.ts` の `buildTimeRangeFilter`/`nextCivilDate` 参照)。
 - DataPointのレスポンス構造は `{name: "users/me/dataTypes/exercise/dataPoints/{id}", exercise: {interval: {startTime, endTime}, exerciseType, metricsSummary: {caloriesKcal, distanceMillimeters, averageHeartRateBeatsPerMinute, ...}}}` という形。`normalize.ts` はこの構造に基づいて実装済み(`exerciseType` の日本語ラベル化は主要な種目のみ対応、未知の種目はフォーマットした英語表記にフォールバック)。ただし `splits`/`exerciseEvents` 等の詳細フィールドは現時点で未活用。
 - 同期ロジック(`functions/src/dataSources/googleHealth/sync.ts`)は直近7日分を毎回取得して冪等upsertする単純な方式。データタイプ `exercise` がサポートする `reconcile` 操作(増分同期向け)への切り替えは、実装時に本当に必要か検討する。
+- **GPSトラック(ウォーキング・サイクリング等)の取込**: `dataPoints.list`(`listExercises`)のレスポンスには座標は含まれず、`users.dataTypes.dataPoints` リソースのカスタムメソッド `exportExerciseTcx`(`GET /v4/{name=users/*/dataTypes/exercise/dataPoints/*}:exportExerciseTcx?alt=media`)を別途呼び出してTCX(Training Center XML v2)形式で取得する必要がある(`functions/src/dataSources/googleHealth/client.ts` の `fetchExerciseTcx`)。`alt=media` を付けないとTCX本体ではなく `{tcxData: "..."}` というJSONラッパーが返るため必須。このメソッドは `activity_and_fitness` に加えて `location` スコープが別途必要で(未同意の場合403になる)、既存にGoogle Healthを接続済みのユーザーは**再接続(OAuth再同意)が必要**(コード化不可、ユーザー側作業。下記「手動セットアップチェックリスト」参照)。TCXのパースは正規表現ベースの軽量実装(`functions/src/dataSources/googleHealth/tcx.ts` の `parseTcxTrackpoints`)で、汎用XMLパーサは導入していない(Google Health API自身が生成する構造が固定されたマシン生成データであるため)。GPS点列は `functions/src/lib/gpsTrackStorage.ts` の `saveGpsTrack` を再利用してFirebase Storageに外部化し(`gpsTracks/google_health_exercise/{logEntryId}.json.gz`)、Google Maps Timelineの `timelinePath` とは異なり**別のlogEntryを作らず、同じエクササイズのlogEntryの `raw.gpsTrack`(storagePath/pointCount/boundingBoxのみ)と `location`(先頭座標)に合成する**(`normalize.ts` の `attachGpsTrack`)。全てのエクササイズにGPSがあるわけではなく、GPS有無を示す専用フィールド(`exerciseMetadata.hasGps`等)がAPIに存在するかは実接続で確認できなかったため、`metricsSummary.distanceMillimeters` の有無(距離メトリクスを持つ=屋外系種目である可能性が高い)という保守的な指標で `exportExerciseTcx` 呼び出し対象を絞り込んでいる(`normalize.ts` の `mayHaveGpsTrack`)。TCX取得・パース結果が0点の場合(屋内エクササイズ、スコープ未同意等)はGPSトラックなしの通常のエクササイズエントリとして扱い、同期全体は失敗させない。
 
 ## 現時点で不足している認証情報(将来フェーズ用)
 
@@ -159,7 +160,7 @@ npx firebase deploy       # 本番デプロイ(hosting + firestore rules/indexes
 
 1. Firebase Console → Authentication → Sign-in method → Google 有効化(**完了済み**)。
 2. Google Cloud Console → APIs & Services → Library で Google Health API を有効化。
-3. Google Cloud Console → OAuth consent screen → スコープに `googlehealth.activity_and_fitness.readonly` を追加、公開ステータスを「本番」に変更。
+3. Google Cloud Console → OAuth consent screen → スコープに `googlehealth.activity_and_fitness.readonly`(運動記録)と `googlehealth.location.readonly`(GPSトラック取得用、フェーズ2追加分)を追加、公開ステータスを「本番」に変更。
 4. Google Cloud Console → Credentials → 既存OAuthクライアント(`GOOGLE_CLIENT_ID`)に `https://asia-northeast1-hakatadiary.cloudfunctions.net/googleHealthOAuthCallback` を承認済みリダイレクトURIとして追加。
 5. デプロイ後、`/data-sources` から「接続」ボタンでGoogle Healthとの実際の接続確認を行う。
 
@@ -173,10 +174,11 @@ npx firebase deploy       # 本番デプロイ(hosting + firestore rules/indexes
 11. Immichサーバーの管理画面(Account Settings → API Keys)でAPIキーを発行する。Secret Managerには登録せず、`/data-sources` の画面からサーバーURL(例: `https://immich.example.com/api`)とAPIキーを直接入力して接続する(`connectImmich` Callable経由で `dataSourceSecrets/immich` に保存される)。
 12. デプロイ後、`/data-sources` から各データソースの「接続」ボタンで実際の接続確認を行う。特にSwarm(Foursquare API)は実フィールドが未検証のため、初回接続時にGoogle Health連携同様のトライアル&エラー修正が必要になる可能性が高い。
 13. Firebase Console(または`firebase deploy`実行時の初回プロンプト)でCloud Storage for Firebaseを有効化する(未有効の場合、デフォルトバケットの作成先リージョンを選択するダイアログが表示されることがある)。GPSトラックの保存先として使用する(`storage.rules`/`firebase.json`の`storage`設定は実装済み)。
+14. 既にGoogle Healthを接続済みの場合、`googlehealth.location.readonly` スコープ追加(上記3.)後に `/data-sources` から**Google Healthを再接続(再度「接続」ボタンからOAuth同意をやり直す)**する。既存のrefresh tokenにはこのスコープが含まれていないため、再接続しないとGPSトラック取得(`exportExerciseTcx`)が403で失敗し続ける(通常のエクササイズ同期自体には影響しない)。
 
 ## 既知の制約・今後の検討事項
 
-- Google Maps Timelineの `timelinePath`(生GPSトラック)・`timelineMemory`(思い出メモ)は取込済み(GPSトラックはFirebase Storageに外部化。詳細は上記「7. Google Maps Timelineの手動インポート設計」参照)。トップレベルの `rawSignals`(生GPS/Wi-Fi信号)・`userLocationProfile`(頻出地点プロファイル)は日誌としての価値が低い/データモデルに馴染まないと判断し、意図的に未取込のまま。取り込んだGPSトラックを地図上に描画するUIは未実装(将来検討)。Google HealthのGPS(ウォーキング/サイクリング等)取込も同様の外部化方式を想定しているが未実装(別issueで検討)。
+- Google Maps Timelineの `timelinePath`(生GPSトラック)・`timelineMemory`(思い出メモ)、およびGoogle Healthのエクササイズ(ウォーキング/サイクリング等)のGPSトラック(詳細は上記「Google Health API連携」参照)は取込済み(いずれもFirebase Storageに外部化。Google Maps Timelineの詳細は上記「7. Google Maps Timelineの手動インポート設計」参照)。Google Maps Timelineのトップレベルの `rawSignals`(生GPS/Wi-Fi信号)・`userLocationProfile`(頻出地点プロファイル)は日誌としての価値が低い/データモデルに馴染まないと判断し、意図的に未取込のまま。取り込んだGPSトラックを地図上に描画するUIは未実装(将来検討)。
 - Immichの自己ホストサーバーがネットワーク的にCloud Functionsから到達可能であることが前提(リバースプロキシ・DDNS等はユーザー側の運用に依存し、コード化不可)。サーバーが到達不能な間は同期が `error` ステータスになるのみで、リトライは次回のスケジュール実行を待つ簡易的な設計。
 - Swarm(Foursquare v2 API `/v2/users/self/checkins`)のレスポンス実フィールドはドキュメントからの推定で実装しており未検証。初回実接続時にGoogle Health連携同様のトライアル&エラー修正が必要になる可能性が高い。また同エンドポイントを含むv2レガシーAPIは2026年5月15日に廃止予定とFoursquareが告知しており、将来的な再移行が必要になる見込み。
 - 複数データソース間の意味的重複統合は、Google Maps訪問記録⇔Swarmチェックインの組み合わせのみ実装済み(`functions/src/dataSources/dedup/dedupeVisitsAndCheckins.ts`)。しきい値(20分/200m)は保守的な初期値であり、実データでの調整が必要になる可能性がある。Google Calendarの予定⇔Immichの写真など、他の組み合わせの統合は未実装。
