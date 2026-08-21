@@ -30,22 +30,14 @@ const beginSwarmOAuth = httpsCallable<undefined, {authUrl: string}>(
 	'beginSwarmOAuth',
 );
 const syncSwarmNow = httpsCallable(functions, 'syncSwarmNow');
-const beginGooglePhotosOAuth = httpsCallable<undefined, {authUrl: string}>(
+const connectImmich = httpsCallable<
+	{serverUrl: string; apiKey: string},
+	{status: 'ok'; email: string}
+>(functions, 'connectImmich');
+const syncImmichNow = httpsCallable<{fullBackfill?: boolean}, unknown>(
 	functions,
-	'beginGooglePhotosOAuth',
+	'syncImmichNow',
 );
-const beginGooglePhotosPickerSession = httpsCallable<
-	undefined,
-	{pickerUri: string; sessionId: string}
->(functions, 'beginGooglePhotosPickerSession');
-const getGooglePhotosPickerSessionStatus = httpsCallable<
-	{sessionId: string},
-	{mediaItemsSet: boolean}
->(functions, 'getGooglePhotosPickerSessionStatus');
-const importGooglePhotosSelection = httpsCallable<
-	{sessionId: string},
-	{imported: number}
->(functions, 'importGooglePhotosSelection');
 const importGoogleMapsTimelineChunk = httpsCallable<
 	{segments: Record<string, unknown>[]},
 	{imported: number; skipped: number}
@@ -330,86 +322,81 @@ const GoogleMapsTimelineCard = () => {
 	);
 };
 
-// ── Google Photos(Picker APIによる手動インポート) ──────────────────────
+// ── Immich(自己ホスト、APIキーによる接続) ────────────────────────────
 
-const PICKER_POLL_INTERVAL_MS = 3000;
-
-const GooglePhotosCard = () => {
-	const dataSourceState = useFirestore(doc(DataSources, 'google_photos'));
+const ImmichCard = () => {
+	const dataSourceState = useFirestore(doc(DataSources, 'immich'));
+	const [serverUrl, setServerUrl] = createSignal('');
+	const [apiKey, setApiKey] = createSignal('');
 	const [busy, setBusy] = createSignal(false);
-	const [pickerStatus, setPickerStatus] = createSignal<
-		'idle' | 'waiting' | 'importing'
-	>('idle');
 	const [error, setError] = createSignal<string | null>(null);
-	const [importedCount, setImportedCount] = createSignal<number | null>(null);
+	const [connectedEmail, setConnectedEmail] = createSignal<string | null>(null);
 
-	const handleConnect = async () => {
+	const handleConnect = async (event: Event) => {
+		event.preventDefault();
 		setBusy(true);
 		setError(null);
 		try {
-			const result = await beginGooglePhotosOAuth();
-			window.location.href = result.data.authUrl;
-		} catch {
-			setError('接続の開始に失敗しました。');
-			setBusy(false);
-		}
-	};
-
-	const handlePickPhotos = async () => {
-		setBusy(true);
-		setError(null);
-		setImportedCount(null);
-		try {
-			const beginResult = await beginGooglePhotosPickerSession();
-			const {pickerUri, sessionId} = beginResult.data;
-			window.open(pickerUri, '_blank', 'noopener,noreferrer');
-			setPickerStatus('waiting');
-
-			await new Promise<void>((resolve, reject) => {
-				const interval = setInterval(() => {
-					getGooglePhotosPickerSessionStatus({sessionId})
-						.then((statusResult) => {
-							if (statusResult.data.mediaItemsSet) {
-								clearInterval(interval);
-								resolve();
-							}
-						})
-						.catch((err: unknown) => {
-							clearInterval(interval);
-							reject(err);
-						});
-				}, PICKER_POLL_INTERVAL_MS);
+			const result = await connectImmich({
+				serverUrl: serverUrl(),
+				apiKey: apiKey(),
 			});
-
-			setPickerStatus('importing');
-			const importResult = await importGooglePhotosSelection({sessionId});
-			setImportedCount(importResult.data.imported);
-			setPickerStatus('idle');
+			setConnectedEmail(result.data.email);
+			setApiKey('');
 		} catch {
-			setError('写真の選択・インポートに失敗しました。');
-			setPickerStatus('idle');
+			setError('接続に失敗しました。サーバーURLとAPIキーを確認してください。');
 		} finally {
 			setBusy(false);
 		}
 	};
 
-	const connectButton = (
-		<button
-			type="button"
-			onClick={handleConnect}
-			disabled={busy()}
-			class="btn btn-primary"
-		>
-			{busy() ? '接続中...' : '接続'}
-		</button>
+	const handleSync = async (fullBackfill: boolean) => {
+		setBusy(true);
+		setError(null);
+		try {
+			await syncImmichNow({fullBackfill});
+		} catch {
+			setError('同期に失敗しました。');
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	const connectForm = (
+		<form onSubmit={handleConnect} class="flex flex-col gap-2">
+			<input
+				type="url"
+				placeholder="サーバーURL(https://immich.example.com/api)"
+				value={serverUrl()}
+				onInput={(e) => setServerUrl(e.currentTarget.value)}
+				required
+				class="input"
+			/>
+			<input
+				type="password"
+				placeholder="APIキー"
+				value={apiKey()}
+				onInput={(e) => setApiKey(e.currentTarget.value)}
+				required
+				class="input"
+			/>
+			<button
+				type="submit"
+				disabled={busy()}
+				class="btn btn-primary self-start"
+			>
+				{busy() ? '接続中...' : '接続'}
+			</button>
+		</form>
 	);
 
 	return (
-		<li class="flex flex-col gap-2 border-divider border-b-2 pb-4 sm:flex-row sm:items-center sm:justify-between">
+		<li class="flex flex-col gap-2 border-divider border-b-2 pb-4">
 			<div>
-				<p class="font-heading font-extrabold">Google Photos(手動インポート)</p>
+				<p class="font-heading font-extrabold">Immich(自己ホスト写真管理)</p>
 				<p class="text-[12px] text-text/55">
-					Google側の仕様変更により自動同期はできません。選択した写真のみインポートされます。
+					サーバーURL(例:
+					https://immich.example.com/api)とAPIキーを入力して接続します。
 				</p>
 				<Doc
 					data={dataSourceState}
@@ -420,40 +407,54 @@ const GooglePhotosCard = () => {
 					}
 				>
 					{(data) => (
-						<p class="text-[13px] text-text/55">
-							状態: {STATUS_LABEL[data.status]}
-						</p>
+						<>
+							<p class="text-[13px] text-text/55">
+								状態: {STATUS_LABEL[data.status]}
+							</p>
+							{data.lastSyncedAt && (
+								<p class="text-[13px] text-text/55">
+									最終同期: {formatDateTime(data.lastSyncedAt.toDate())}
+								</p>
+							)}
+							{data.lastSyncError && (
+								<p class="text-[13px] text-accent">{data.lastSyncError}</p>
+							)}
+						</>
 					)}
 				</Doc>
-				{importedCount() !== null && (
+				{connectedEmail() && (
 					<p class="text-[13px] text-text/55">
-						{importedCount()}件の写真をインポートしました。
+						{connectedEmail()} として接続しました。
 					</p>
 				)}
 				{error() && <p class="text-[13px] text-accent">{error()}</p>}
 			</div>
-			<div>
-				<Doc data={dataSourceState} fallback={connectButton}>
-					{(data) =>
-						data.status === 'connected' ? (
+			<Doc data={dataSourceState} fallback={connectForm}>
+				{(data) =>
+					data.status === 'connected' ? (
+						<div class="flex gap-2">
 							<button
 								type="button"
-								onClick={handlePickPhotos}
+								onClick={() => handleSync(false)}
 								disabled={busy()}
 								class="btn btn-secondary"
 							>
-								{pickerStatus() === 'waiting'
-									? '選択待ち...'
-									: pickerStatus() === 'importing'
-										? 'インポート中...'
-										: '写真を選択してインポート'}
+								{busy() ? '同期中...' : '今すぐ同期'}
 							</button>
-						) : (
-							connectButton
-						)
-					}
-				</Doc>
-			</div>
+							<button
+								type="button"
+								onClick={() => handleSync(true)}
+								disabled={busy()}
+								class="btn btn-secondary"
+							>
+								{busy() ? '同期中...' : '全期間を同期'}
+							</button>
+						</div>
+					) : (
+						connectForm
+					)
+				}
+			</Doc>
 		</li>
 	);
 };
@@ -545,7 +546,7 @@ const DataSourcesPage = () => (
 					syncNow={syncSwarmNow}
 				/>
 				<GoogleMapsTimelineCard />
-				<GooglePhotosCard />
+				<ImmichCard />
 			</ul>
 			<hr class="hr" />
 			<MaintenanceSection />
