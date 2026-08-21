@@ -36,8 +36,16 @@ const gpsTcx = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 test('parseTcxTrackpoints extracts lat/lng/time from Trackpoint elements', () => {
 	const points = parseTcxTrackpoints(gpsTcx);
 	expect(points).toEqual([
-		{lat: 51.532945, lng: -0.12476333333333334, time: '2025-09-08T08:45:21.000+01:00'},
-		{lat: 51.53294666666667, lng: -0.12476333333333334, time: '2025-09-08T08:45:22.000+01:00'},
+		{
+			lat: 51.532945,
+			lng: -0.12476333333333334,
+			time: '2025-09-08T08:45:21.000+01:00',
+		},
+		{
+			lat: 51.53294666666667,
+			lng: -0.12476333333333334,
+			time: '2025-09-08T08:45:22.000+01:00',
+		},
 	]);
 });
 
@@ -49,7 +57,8 @@ test('parseTcxTrackpoints skips trackpoints without a Position element', () => {
 });
 
 test('parseTcxTrackpoints returns an empty array for a lap-less (indoor) export', () => {
-	const tcx = '<TrainingCenterDatabase><Activities><Activity><Id>2026-06-07T12:30:31.000+01:00</Id></Activity></Activities></TrainingCenterDatabase>';
+	const tcx =
+		'<TrainingCenterDatabase><Activities><Activity><Id>2026-06-07T12:30:31.000+01:00</Id></Activity></Activities></TrainingCenterDatabase>';
 	expect(parseTcxTrackpoints(tcx)).toEqual([]);
 });
 

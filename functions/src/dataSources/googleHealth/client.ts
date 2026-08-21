@@ -87,9 +87,7 @@ export const fetchExerciseTcx = async (
 	dataPointName: string,
 ): Promise<string | null> => {
 	const accessToken = await getGoogleAccessToken(refreshToken);
-	const url = new URL(
-		`${API_BASE_URL}/${dataPointName}:exportExerciseTcx`,
-	);
+	const url = new URL(`${API_BASE_URL}/${dataPointName}:exportExerciseTcx`);
 	url.searchParams.set('alt', 'media');
 
 	const response = await fetch(url, {
