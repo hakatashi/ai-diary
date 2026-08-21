@@ -4,7 +4,7 @@
 	"scripts": {
 		"dev": "concurrently \"npm run dev:server\" \"npm run dev:firebase\" \"npm run functions:build:watch\" --names server,firebase,functions",
 		"dev:server": "vinxi dev",
-		"dev:firebase": "firebase emulators:start --only firestore,hosting,auth,functions",
+		"dev:firebase": "firebase emulators:start --only firestore,hosting,auth,functions,storage",
 		"build": "vinxi build",
 		"functions:build:watch": "npm --prefix functions run build:watch",
 		"functions:shell": "firebase functions:shell",
@@ -13,7 +13,7 @@
 		"format": "biome format --write",
 		"fix": "npm run format && npm run lint -- --unsafe",
 		"test": "concurrently \"npm run dev:firebase\" \"npm run test:vitest\" --names firebase,vitest --kill-others --success first",
-		"test:vitest": "wait-on http-get://localhost:40615 http-get://localhost:5000 http-get://localhost:9099 && vitest",
+		"test:vitest": "wait-on http-get://localhost:40615 http-get://localhost:5000 http-get://localhost:9099 tcp:localhost:9199 && vitest",
 		"prepare": "husky",
 		"install": "cd functions && npm install"
 	},

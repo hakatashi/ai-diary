@@ -45,6 +45,8 @@ export type LogEntrySourceType =
 	| 'google_calendar_event'
 	| 'google_maps_visit'
 	| 'google_maps_activity'
+	| 'google_maps_path'
+	| 'google_maps_memory'
 	| 'swarm_checkin'
 	| 'immich_photo';
 

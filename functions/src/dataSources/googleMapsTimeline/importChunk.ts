@@ -7,10 +7,14 @@ import {googlePlacesApiKey} from '../../lib/secrets';
 import {dedupeVisitsAndCheckins} from '../dedup/dedupeVisitsAndCheckins';
 import {
 	isActivitySegment,
+	isMemorySegment,
+	isPathSegment,
 	isVisitSegment,
-	normalizeActivitySegment,
-	normalizeVisitSegment,
 	type NormalizedSegment,
+	normalizeActivitySegment,
+	normalizeMemorySegment,
+	normalizePathSegment,
+	normalizeVisitSegment,
 	type RawTimelineSegment,
 } from './normalize';
 
@@ -50,6 +54,10 @@ export const importGoogleMapsTimelineChunk = onCall<ImportChunkRequest>(
 					normalized = await normalizeVisitSegment(segment);
 				} else if (isActivitySegment(segment)) {
 					normalized = normalizeActivitySegment(segment);
+				} else if (isPathSegment(segment)) {
+					normalized = await normalizePathSegment(segment);
+				} else if (isMemorySegment(segment)) {
+					normalized = normalizeMemorySegment(segment);
 				}
 
 				if (normalized) {

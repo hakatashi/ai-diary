@@ -101,13 +101,16 @@ Swarm(Foursquare)はGoogleとは無関係の独自OAuth2フローのため、こ
 Google Maps Timelineのエクスポート(Google Takeout等で取得する `Timeline.json`)はAPIが存在しないため、ユーザーがブラウザから直接JSONファイルをアップロードする方式にした(`/data-sources` の該当カード)。設計上の要点:
 
 - **パースはすべてクライアント側で行う**(`file.text()` → `JSON.parse()`)。ファイルは数十MB〜100MB超になりうるため、Cloud Storageは使わずブラウザのメモリ上で完結させている。
-- `semanticSegments` のうち `visit`/`activity` を持つセグメントのみを対象とする。`timelinePath`(生GPSトラック)と `timelineMemory`(思い出メモ)は今回未対応(下記「既知の制約」参照)。
-- **書き込み前に必ず件数を確認ダイアログで表示**し(「訪問記録◯件・移動記録◯件をインポートします」)、ユーザーの明示的な確認を経てから送信する。
+- `semanticSegments` のうち `visit`/`activity`/`timelinePath`(生GPSトラック)/`timelineMemory`(思い出メモ)を持つセグメントを対象とする。トップレベルの `rawSignals`(生GPS/Wi-Fi信号、直近1ヶ月のみのローリングウィンドウで通し履歴を構成できない)と `userLocationProfile`(頻出地点等の単一集計データで`logEntries`の時系列モデルに馴染まない)は意図的に取込対象外としている。
+- **書き込み前に必ず件数を確認ダイアログで表示**し(「訪問記録◯件・移動記録◯件・GPS経路◯件・思い出メモ◯件をインポートします」)、ユーザーの明示的な確認を経てから送信する。
 - クライアントは対象セグメントを**日時が新しい順に並べ替えてから**400件ずつのチャンクに分割し、`importGoogleMapsTimelineChunk` Callableを順番に呼び出す(`firestore.rules` で `logEntries` はクライアント書き込み不可のため、大量インポートも必ずCallable経由になる)。新しい順に処理するのは、数万件規模のインポートが途中で中断されても直近のデータが優先的に取り込まれるようにするため。Callable内部ではFirestore `WriteBatch` を使い、1コミットあたり450件以下に分割してコミットする(Firestoreの1コミットあたり500件上限に対して余裕を持たせている)。
 - 訪問(`visit`)セグメントの `placeId` は `functions/src/dataSources/googleMapsTimeline/placesClient.ts` の `resolvePlace` で場所名を解決する。まず `placesCache/{placeId}` を参照し、無ければ Places API (New) を呼んでキャッシュする。**`GOOGLE_PLACES_API_KEY` 未設定時やAPI呼び出し失敗時は例外を投げず緯度経度表記にフォールバックする**(インポート全体を失敗させない設計)。
   - **Places API (Place Details Pro SKU) の無料枠は月5,000件**。予期しない高額請求を避けるため、`placesApiUsage/{YYYY-MM}` ドキュメント(`callCount` フィールド、Admin SDK専用)で当月の呼び出し回数を追跡し、**4,500件(500件の安全マージン)に達したら以降の呼び出しをスキップ**して緯度経度表記にフォールバックする。呼び出しはAPIレスポンスの成功・失敗を問わず記録する(リクエスト自体が課金対象になりうるため)。2026年7月時点の実績: `placesCache` の当月ドキュメント数(384件、実接続テストで判明)を初期値として本番の `placesApiUsage/2026-07` に遡及記録済み。
   - リクエストには `languageCode=ja`/`regionCode=JP` を付与し、`displayName` 等が日本語で返るようにしている。`displayName` を要求した時点でPro SKU料金が発生するため、同じ呼び出しの中で追加費用なく取得できるEssentials/Essentials IDs Only/Pro SKUの主要フィールド(`formattedAddress`, `location`, `types`, `primaryType`, `businessStatus`, `googleMapsUri` 等)をまとめて取得し、レスポンス全体を `placesCache.raw` に保存している(同じ場所について2度目のAPI呼び出しが発生しないようにするため。フィールド一覧は `functions/src/dataSources/googleMapsTimeline/placesClient.ts` の `FIELD_MASK` 参照)。
 - 冪等性: `logEntryId` はセグメントの `startTime`/`endTime`/`placeId`(または距離)からのハッシュで決定的に生成されるため、同じエクスポートファイルを再アップロードしても重複しない。ただし大量書き込みのパフォーマンスを優先し、既存ドキュメントの `createdAt` を保持するための事前読み取りは行わず、再インポート時は `createdAt` も上書きする(このデータソースに限った簡略化)。
+- **GPSトラック(`timelinePath`)はFirebase Storageに外部化する。** 実データ(13年分のエクスポート)で検証したところ1セグメントあたり最大134点(~10KB)程度でFirestoreの1MiBドキュメント上限に単体で抵触するリスクは低いが、GPS点列はクエリ対象にならないブロブデータであり、`logEntries`をカレンダー/一覧ビューで大量に読む際の転送量を抑えるため、あえてFirestoreにインラインで持たせない設計にした。`functions/src/lib/gpsTrackStorage.ts` の `saveGpsTrack` がJSONをgzip圧縮して `gpsTracks/google_maps_path/{logEntryId}.json.gz` に保存し、`logEntries.raw` には `storagePath`/`pointCount`/`boundingBox` のみを残す(点列本体は持たない)。距離は `functions/src/dataSources/dedup/geo.ts` の既存 `haversineDistanceMeters` を再利用して連続点間で積算する。粒度は既存の「1セグメント=1logEntry」モデルをそのまま踏襲し、日次集約のような新しいデータモデルは導入していない。コスト試算: 13年分の全履歴でも圧縮後3.3MB程度(Firebase Storage無料枠5GBの0.07%)で、実質$0/月。取り込んだトラックを地図上に描画するUIは未実装(別途検討)。
+- `timelineMemory`(思い出メモ)は件数・サイズが小さいため上記の外部化は行わず、`note.note` をそのまま`logEntries.summary`としてインライン格納する(空文字の場合はスキップ)。
+- Google HealthのGPS(ウォーキング/サイクリング等のトラックログ)は概念的には同じ`gpsTrackStorage`ヘルパーを再利用できる想定だが、実際のAPIエンドポイントは未実装・未確認のため別issueで扱う。
 
 ### 8. 写真データソースはImmich(自己ホスト)。API キー認証・定期自動同期対応
 
@@ -169,10 +172,11 @@ npx firebase deploy       # 本番デプロイ(hosting + firestore rules/indexes
 10. `firebase functions:secrets:set FOURSQUARE_OAUTH_CLIENT_SECRET` でSecret Managerに登録する(値は `.env` の `FOURSQUARE_OAUTH_CLIENT_SECRET` と同じ)。
 11. Immichサーバーの管理画面(Account Settings → API Keys)でAPIキーを発行する。Secret Managerには登録せず、`/data-sources` の画面からサーバーURL(例: `https://immich.example.com/api`)とAPIキーを直接入力して接続する(`connectImmich` Callable経由で `dataSourceSecrets/immich` に保存される)。
 12. デプロイ後、`/data-sources` から各データソースの「接続」ボタンで実際の接続確認を行う。特にSwarm(Foursquare API)は実フィールドが未検証のため、初回接続時にGoogle Health連携同様のトライアル&エラー修正が必要になる可能性が高い。
+13. Firebase Console(または`firebase deploy`実行時の初回プロンプト)でCloud Storage for Firebaseを有効化する(未有効の場合、デフォルトバケットの作成先リージョンを選択するダイアログが表示されることがある)。GPSトラックの保存先として使用する(`storage.rules`/`firebase.json`の`storage`設定は実装済み)。
 
 ## 既知の制約・今後の検討事項
 
-- Google Maps Timelineの `semanticSegments` のうち `timelinePath`(生GPSトラック)・`timelineMemory`(思い出メモ)、および `rawSignals`/`userLocationProfile` はフェーズ2では未取込。`visit`/`activity` のみを `logEntries` 化している。生GPSトラックをFirestoreドキュメント1MiB上限内でどう格納するか(間引き、サブコレクション分割等)は依然未検討で、地図上への経路描画機能を実装する際に再設計が必要になる。
+- Google Maps Timelineの `timelinePath`(生GPSトラック)・`timelineMemory`(思い出メモ)は取込済み(GPSトラックはFirebase Storageに外部化。詳細は上記「7. Google Maps Timelineの手動インポート設計」参照)。トップレベルの `rawSignals`(生GPS/Wi-Fi信号)・`userLocationProfile`(頻出地点プロファイル)は日誌としての価値が低い/データモデルに馴染まないと判断し、意図的に未取込のまま。取り込んだGPSトラックを地図上に描画するUIは未実装(将来検討)。Google HealthのGPS(ウォーキング/サイクリング等)取込も同様の外部化方式を想定しているが未実装(別issueで検討)。
 - Immichの自己ホストサーバーがネットワーク的にCloud Functionsから到達可能であることが前提(リバースプロキシ・DDNS等はユーザー側の運用に依存し、コード化不可)。サーバーが到達不能な間は同期が `error` ステータスになるのみで、リトライは次回のスケジュール実行を待つ簡易的な設計。
 - Swarm(Foursquare v2 API `/v2/users/self/checkins`)のレスポンス実フィールドはドキュメントからの推定で実装しており未検証。初回実接続時にGoogle Health連携同様のトライアル&エラー修正が必要になる可能性が高い。また同エンドポイントを含むv2レガシーAPIは2026年5月15日に廃止予定とFoursquareが告知しており、将来的な再移行が必要になる見込み。
 - 複数データソース間の意味的重複統合は、Google Maps訪問記録⇔Swarmチェックインの組み合わせのみ実装済み(`functions/src/dataSources/dedup/dedupeVisitsAndCheckins.ts`)。しきい値(20分/200m)は保守的な初期値であり、実データでの調整が必要になる可能性がある。Google Calendarの予定⇔Immichの写真など、他の組み合わせの統合は未実装。

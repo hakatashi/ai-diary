@@ -1,6 +1,7 @@
 import {createHash} from 'node:crypto';
 import {GeoPoint, Timestamp} from 'firebase-admin/firestore';
 import type {LogEntry} from '../../../../src/lib/schema.ts';
+import {saveGpsTrack} from '../../lib/gpsTrackStorage';
 import {resolvePlace} from './placesClient';
 
 const TIME_ZONE = 'Asia/Tokyo';
@@ -44,9 +45,30 @@ export interface RawActivitySegment {
 	};
 }
 
+export interface RawPathSegment {
+	startTime: string;
+	endTime: string;
+	timelinePath: {
+		point: string;
+		time: string;
+	}[];
+}
+
+export interface RawMemorySegment {
+	startTime: string;
+	endTime: string;
+	timelineMemory: {
+		note?: {
+			note?: string;
+		};
+	};
+}
+
 export type RawTimelineSegment =
 	| RawVisitSegment
 	| RawActivitySegment
+	| RawPathSegment
+	| RawMemorySegment
 	| Record<string, unknown>;
 
 export interface NormalizedSegment {
@@ -115,6 +137,18 @@ export const isActivitySegment = (
 	segment: RawTimelineSegment,
 ): segment is RawActivitySegment =>
 	'activity' in segment && Boolean((segment as RawActivitySegment).activity);
+
+export const isPathSegment = (
+	segment: RawTimelineSegment,
+): segment is RawPathSegment =>
+	'timelinePath' in segment &&
+	Array.isArray((segment as RawPathSegment).timelinePath);
+
+export const isMemorySegment = (
+	segment: RawTimelineSegment,
+): segment is RawMemorySegment =>
+	'timelineMemory' in segment &&
+	Boolean((segment as RawMemorySegment).timelineMemory);
 
 export const normalizeVisitSegment = async (
 	segment: RawVisitSegment,
@@ -217,6 +251,109 @@ export const normalizeActivitySegment = (
 			location: startCoords
 				? new GeoPoint(startCoords.lat, startCoords.lng)
 				: null,
+			raw: segment as unknown as Record<string, unknown>,
+			sourceRecordId,
+		},
+	};
+};
+
+export const normalizePathSegment = async (
+	segment: RawPathSegment,
+): Promise<NormalizedSegment | null> => {
+	const startDate = new Date(segment.startTime);
+	const endDate = segment.endTime ? new Date(segment.endTime) : null;
+	if (Number.isNaN(startDate.getTime())) {
+		return null;
+	}
+
+	const points = segment.timelinePath
+		.map((p) => {
+			const coords = parseLatLng(p.point);
+			return coords ? {lat: coords.lat, lng: coords.lng, time: p.time} : null;
+		})
+		.filter((p): p is {lat: number; lng: number; time: string} => p !== null);
+
+	if (points.length === 0) {
+		return null;
+	}
+
+	const durationMinutes =
+		endDate && !Number.isNaN(endDate.getTime())
+			? Math.round((endDate.getTime() - startDate.getTime()) / 60000)
+			: undefined;
+
+	const sourceRecordId = `${segment.startTime}_${segment.endTime}_${points.length}`;
+	const id = createHash('sha256')
+		.update(`google_maps_path:${sourceRecordId}`)
+		.digest('hex');
+
+	const track = await saveGpsTrack(
+		`gpsTracks/google_maps_path/${id}.json.gz`,
+		points,
+	);
+
+	return {
+		id,
+		entry: {
+			sourceType: 'google_maps_path',
+			category: 'location',
+			date: dateFormatter.format(startDate),
+			startAt: Timestamp.fromDate(startDate),
+			endAt:
+				endDate && !Number.isNaN(endDate.getTime())
+					? Timestamp.fromDate(endDate)
+					: null,
+			title: '移動経路',
+			summary: null,
+			metrics: {
+				distanceMeters: track.distanceMeters,
+				...(durationMinutes !== undefined && {durationMinutes}),
+			},
+			location: new GeoPoint(points[0].lat, points[0].lng),
+			raw: {
+				storagePath: track.storagePath,
+				pointCount: track.pointCount,
+				boundingBox: track.boundingBox,
+			},
+			sourceRecordId,
+		},
+	};
+};
+
+export const normalizeMemorySegment = (
+	segment: RawMemorySegment,
+): NormalizedSegment | null => {
+	const startDate = new Date(segment.startTime);
+	const endDate = segment.endTime ? new Date(segment.endTime) : null;
+	if (Number.isNaN(startDate.getTime())) {
+		return null;
+	}
+
+	const note = segment.timelineMemory.note?.note;
+	if (!note) {
+		return null;
+	}
+
+	const sourceRecordId = `${segment.startTime}_${segment.endTime}`;
+	const id = createHash('sha256')
+		.update(`google_maps_memory:${sourceRecordId}`)
+		.digest('hex');
+
+	return {
+		id,
+		entry: {
+			sourceType: 'google_maps_memory',
+			category: 'location',
+			date: dateFormatter.format(startDate),
+			startAt: Timestamp.fromDate(startDate),
+			endAt:
+				endDate && !Number.isNaN(endDate.getTime())
+					? Timestamp.fromDate(endDate)
+					: null,
+			title: '思い出メモ',
+			summary: note,
+			metrics: null,
+			location: null,
 			raw: segment as unknown as Record<string, unknown>,
 			sourceRecordId,
 		},
