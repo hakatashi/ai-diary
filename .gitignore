@@ -31,3 +31,6 @@ Thumbs.db
 # Firebase
 .firebase
 *.log
+
+# Assets for test purposes
+testing/
