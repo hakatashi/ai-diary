@@ -102,24 +102,26 @@ const PhotoStrip = (props: {entries: LogEntry[]}) => {
 
 			<Show when={selectedEntry()} keyed={true}>
 				{(entry) => (
-					<div class="fixed inset-0 z-100 grid place-items-center bg-black/65 p-8">
-						<div class="flex w-[min(720px,90vw)] flex-col bg-bg shadow-lg">
-							<Show
-								when={previewUrl()}
-								fallback={
-									<div class="flex h-[420px] items-center justify-center text-[13px] text-text/55">
-										読み込み中…
-									</div>
-								}
-							>
-								{(url) => (
-									<img
-										src={url()}
-										alt={entry.title}
-										class="h-[420px] w-full object-contain"
-									/>
-								)}
-							</Show>
+					<div class="fixed inset-0 z-100 grid place-items-center bg-black/75 p-4">
+						<div class="flex h-[94vh] w-[94vw] max-w-[1600px] flex-col bg-bg shadow-lg">
+							<div class="min-h-0 flex-1">
+								<Show
+									when={previewUrl()}
+									fallback={
+										<div class="flex h-full items-center justify-center text-[13px] text-text/55">
+											読み込み中…
+										</div>
+									}
+								>
+									{(url) => (
+										<img
+											src={url()}
+											alt={entry.title}
+											class="h-full w-full object-contain"
+										/>
+									)}
+								</Show>
+							</div>
 							<div class="flex items-center justify-between border-divider border-t-2 px-5 py-4">
 								<span class="text-[13px] text-text/60">
 									{formatTime(entry.startAt.toDate())} に撮影

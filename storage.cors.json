@@ -1,6 +1,9 @@
 [
 	{
-		"origin": ["https://hakatadiary.web.app", "https://hakatadiary.firebaseapp.com"],
+		"origin": [
+			"https://hakatadiary.web.app",
+			"https://hakatadiary.firebaseapp.com"
+		],
 		"method": ["GET"],
 		"responseHeader": ["Content-Type", "Content-Encoding"],
 		"maxAgeSeconds": 3600
