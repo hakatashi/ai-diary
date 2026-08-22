@@ -31,6 +31,9 @@
 	--color-accent-800: #7c1405;
 	--color-accent-900: #4d170e;
 
+	/* 電車・車など高速な移動経路を、徒歩等の通常経路(--color-accent)と区別するためのサブアクセント。 */
+	--color-accent-secondary: #1f6fb0;
+
 	--shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
 	--shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
 	--shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
@@ -193,4 +196,25 @@ textarea.input {
 .nav a:hover,
 .nav a[aria-current='page'] {
 	color: var(--color-accent);
+}
+
+/* Leafletの内部ペイン・コントロールはz-indexが最大1000まであり、
+   isolationなしだとページ側の固定要素(写真モーダル等)より前面に出てしまう。
+   新しいスタッキングコンテキストで囲い込み、地図の内部z-indexをこの中に閉じ込める。 */
+.journal-map {
+	isolation: isolate;
+}
+
+/* 地図タイルのみグレースケール化し、マーカー・経路の彩色は保持する。
+ * 移動経路の線が地図タイルに埋もれて見えにくかったため、タイル自体も70%の不透明度で透過させる。 */
+.journal-map .leaflet-tile-pane {
+	filter: grayscale(1) contrast(1.1);
+	opacity: 0.7;
+}
+.journal-map .leaflet-tooltip {
+	font-family: var(--font-body);
+	font-size: 11px;
+	border-radius: 0;
+	border: none;
+	box-shadow: var(--shadow-sm);
 }

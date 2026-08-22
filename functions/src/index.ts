@@ -8,6 +8,7 @@ export {
 } from './dataSources/googleHealth/oauth';
 export {importGoogleMapsTimelineChunk} from './dataSources/googleMapsTimeline/importChunk';
 export {connectImmich} from './dataSources/immich/connect';
+export {getImmichThumbnail} from './dataSources/immich/thumbnail';
 export {
 	beginSwarmOAuth,
 	swarmOAuthCallback,
