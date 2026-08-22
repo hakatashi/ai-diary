@@ -28,3 +28,9 @@
 16. Google Cloud Console → OAuth consent screen → スコープに `googlehealth.nutrition.readonly`(食事)・`googlehealth.sleep.readonly`(睡眠)・`googlehealth.health_metrics_and_measurements.readonly`(体重)を追加する。
 17. 既にGoogle Healthを接続済みの場合、上記16.のスコープ追加後に `/data-sources` から**Google Healthを再接続(再度「接続」ボタンからOAuth同意をやり直す)**する。既存のrefresh tokenにはこれらのスコープが含まれていないため、再接続しないと食事・睡眠・体重の同期が403で失敗し続ける(既存の運動記録同期自体には影響しない。`syncGoogleHealth` はデータタイプごとに独立してエラー処理するため、この間は `lastSyncStatus: 'partial'` となり `lastSyncError` にどのデータタイプが失敗したかが表示される)。
 18. デプロイ・再接続後、`/data-sources` から「今すぐ同期」を実行し、食事・睡眠・体重の記録が日誌ページに表示されることを確認する。フィルタ構文・レスポンススキーマは本番のrefresh tokenを使った実接続で検証済み(詳細: [ADR-0010](adr/0010-google-health-nutrition-sleep-weight.md))。
+
+## Playnite(PCゲームプレイ記録)追加分
+
+19. デプロイ後、`/data-sources` の Playnite カードから「接続」を押してingestトークンを発行する(この画面でのみ表示される)。
+20. ゲームをプレイするPC上で `playnite-extension/README.md` の手順に従い、`%APPDATA%\AiDiaryPlaynite\config.json` の作成とPlaynite拡張のインストールを行う。
+21. 適当なゲームを起動・終了し、`/data-sources` の「最終受信」が更新されることと、日誌ページにセッションが表示されることを確認する。

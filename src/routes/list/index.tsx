@@ -7,6 +7,7 @@ import {
 	ActivityIcon,
 	CalendarIcon,
 	CheckinIcon,
+	GameIcon,
 	LocationIcon,
 	NutritionIcon,
 	PhotoIcon,
@@ -32,6 +33,7 @@ const CATEGORY_ICON: Record<
 	checkin: CheckinIcon,
 	calendar: CalendarIcon,
 	photo: PhotoIcon,
+	game: GameIcon,
 };
 
 const CATEGORY_LABEL: Record<LogEntryCategory, string> = {
@@ -43,6 +45,7 @@ const CATEGORY_LABEL: Record<LogEntryCategory, string> = {
 	checkin: 'チェックイン',
 	calendar: '予定',
 	photo: '写真',
+	game: 'ゲーム',
 };
 
 const ALL_CATEGORIES = Object.keys(CATEGORY_LABEL) as LogEntryCategory[];

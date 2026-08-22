@@ -10,6 +10,8 @@ export {
 export {importGoogleMapsTimelineChunk} from './dataSources/googleMapsTimeline/importChunk';
 export {connectImmich} from './dataSources/immich/connect';
 export {getImmichThumbnail} from './dataSources/immich/thumbnail';
+export {connectPlaynite} from './dataSources/playnite/connect';
+export {recordPlayniteSession} from './dataSources/playnite/ingest';
 export {
 	beginSwarmOAuth,
 	swarmOAuthCallback,

@@ -4,6 +4,7 @@ import {
 	chevronBackOutline,
 	chevronForwardOutline,
 	flagOutline,
+	gameControllerOutline,
 	imageOutline,
 	locationOutline,
 	mapOutline,
@@ -127,6 +128,15 @@ export const SleepIcon = (props: IconProps): JSX.Element => (
 export const WeightIcon = (props: IconProps): JSX.Element => (
 	<IonIcon
 		icon={scaleOutline}
+		style={iconSize(props.size ?? 14)}
+		class={props.class}
+		aria-hidden="true"
+	/>
+);
+
+export const GameIcon = (props: IconProps): JSX.Element => (
+	<IonIcon
+		icon={gameControllerOutline}
 		style={iconSize(props.size ?? 14)}
 		class={props.class}
 		aria-hidden="true"

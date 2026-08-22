@@ -13,6 +13,7 @@ const DISCONNECTABLE_DATA_SOURCE_IDS = new Set([
 	'google_calendar',
 	'swarm',
 	'immich',
+	'playnite',
 ]);
 
 interface DisconnectDataSourceRequest {

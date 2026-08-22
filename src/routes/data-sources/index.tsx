@@ -38,6 +38,10 @@ const syncImmichNow = httpsCallable<{fullBackfill?: boolean}, unknown>(
 	functions,
 	'syncImmichNow',
 );
+const connectPlaynite = httpsCallable<
+	undefined,
+	{status: 'ok'; ingestToken: string}
+>(functions, 'connectPlaynite');
 const importGoogleMapsTimelineChunk = httpsCallable<
 	{segments: Record<string, unknown>[]},
 	{imported: number; skipped: number}
@@ -557,6 +561,112 @@ const ImmichCard = () => {
 	);
 };
 
+// ── Playnite(ローカルPC拡張からのpush、専用ingestトークンによる接続) ────────
+
+const PLAYNITE_INGEST_URL =
+	'https://asia-northeast1-hakatadiary.cloudfunctions.net/recordPlayniteSession';
+
+const PlayniteCard = () => {
+	const dataSourceState = useFirestore(doc(DataSources, 'playnite'));
+	const [issuedToken, setIssuedToken] = createSignal<string | null>(null);
+	const [busy, setBusy] = createSignal(false);
+	const [error, setError] = createSignal<string | null>(null);
+
+	const handleConnect = async () => {
+		setBusy(true);
+		setError(null);
+		try {
+			const result = await connectPlaynite();
+			setIssuedToken(result.data.ingestToken);
+		} catch {
+			setError('トークンの発行に失敗しました。');
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	return (
+		<li class="flex flex-col gap-2 border-divider border-b-2 pb-4">
+			<div>
+				<p class="font-heading font-extrabold">Playnite (PCゲームプレイ記録)</p>
+				<p class="text-[12px] text-text/55">
+					Playnite拡張(PowerShellスクリプト)がゲーム終了時にプレイ記録をpushします。定期自動同期はなく、接続するとingestトークンが一度だけ表示されるので拡張の設定ファイルにコピーしてください。
+				</p>
+				<Doc
+					data={dataSourceState}
+					fallback={
+						<p class="text-[13px] text-text/55">
+							状態: {STATUS_LABEL.disconnected}
+						</p>
+					}
+				>
+					{(data) => (
+						<>
+							<p class="text-[13px] text-text/55">
+								状態: {STATUS_LABEL[data.status]}
+							</p>
+							{data.lastSyncedAt && (
+								<p class="text-[13px] text-text/55">
+									最終受信: {formatDateTime(data.lastSyncedAt.toDate())}
+								</p>
+							)}
+							{data.lastSyncError && (
+								<p class="text-[13px] text-accent">{data.lastSyncError}</p>
+							)}
+						</>
+					)}
+				</Doc>
+				{issuedToken() && (
+					<div class="mt-2 flex flex-col gap-1 border-divider border-2 p-2">
+						<p class="text-[13px]">
+							ingestトークン(この画面を離れると再表示できません):
+						</p>
+						<code class="break-all text-[12px]">{issuedToken()}</code>
+						<p class="text-[12px] text-text/55">
+							エンドポイント: {PLAYNITE_INGEST_URL}
+						</p>
+					</div>
+				)}
+				{error() && <p class="text-[13px] text-accent">{error()}</p>}
+			</div>
+			<Doc
+				data={dataSourceState}
+				fallback={
+					<button
+						type="button"
+						onClick={handleConnect}
+						disabled={busy()}
+						class="btn btn-primary self-start"
+					>
+						{busy() ? '発行中...' : '接続'}
+					</button>
+				}
+			>
+				{(data) => (
+					<div class="flex flex-col items-end gap-2">
+						<div class="flex gap-2">
+							<button
+								type="button"
+								onClick={handleConnect}
+								disabled={busy()}
+								class="btn btn-secondary"
+							>
+								{busy() ? '発行中...' : 'トークンを再発行'}
+							</button>
+						</div>
+						{data.status === 'connected' && (
+							<DisconnectButton
+								dataSourceId="playnite"
+								onDisconnected={() => setIssuedToken(null)}
+							/>
+						)}
+					</div>
+				)}
+			</Doc>
+		</li>
+	);
+};
+
 // ── メンテナンス: 重複統合の手動再実行 ─────────────────────────────────
 
 const MaintenanceSection = () => {
@@ -645,6 +755,7 @@ const DataSourcesPage = () => (
 				/>
 				<GoogleMapsTimelineCard />
 				<ImmichCard />
+				<PlayniteCard />
 			</ul>
 			<hr class="hr" />
 			<MaintenanceSection />
