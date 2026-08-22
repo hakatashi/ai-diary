@@ -12,12 +12,15 @@ export interface DataSourceSecretPayload {
 	apiKey?: string;
 	/** api_key型データソースの接続先サーバーURL(例: ImmichのAPIベースURL)。 */
 	serverUrl?: string;
+	/** oauth1_access_token型データソース(Zaim)のaccess token secret。accessTokenと対になる。 */
+	accessTokenSecret?: string;
 }
 
 export interface DataSourceSecret {
 	credentialType:
 		| 'oauth2_refresh_token'
 		| 'oauth2_access_token'
+		| 'oauth1_access_token'
 		| 'api_key'
 		| 'basic_auth';
 	payload: DataSourceSecretPayload;
@@ -27,4 +30,9 @@ export interface DataSourceSecret {
 export interface OAuthState {
 	dataSourceId: string;
 	createdAt: Timestamp;
+	/**
+	 * OAuth 1.0a(Zaim)専用。request tokenと対の oauth_token_secret を
+	 * authorize→callbackの間だけ引き継ぐために保存する。OAuth2データソースでは未使用。
+	 */
+	oauthTokenSecret?: string;
 }

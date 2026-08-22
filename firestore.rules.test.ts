@@ -329,3 +329,68 @@ describe('journalEntries/{date}', () => {
 		);
 	});
 });
+
+describe('financeRules/{ruleId}', () => {
+	test('owner can read', async () => {
+		await seed(async (db) => {
+			await db
+				.doc('financeRules/rule-1')
+				.set({account: null, assignedMajorCategory: '趣味・娯楽'});
+		});
+		await assertSucceeds(
+			ownerContext().firestore().doc('financeRules/rule-1').get(),
+		);
+	});
+
+	test('non-owner cannot read', async () => {
+		await seed(async (db) => {
+			await db
+				.doc('financeRules/rule-1')
+				.set({account: null, assignedMajorCategory: '趣味・娯楽'});
+		});
+		await assertFails(
+			otherUserContext().firestore().doc('financeRules/rule-1').get(),
+		);
+	});
+
+	test('owner can create, update, and delete', async () => {
+		await assertSucceeds(
+			ownerContext()
+				.firestore()
+				.doc('financeRules/rule-1')
+				.set({account: null, assignedMajorCategory: '趣味・娯楽'}),
+		);
+		await assertSucceeds(
+			ownerContext()
+				.firestore()
+				.doc('financeRules/rule-1')
+				.update({assignedMajorCategory: '日用品'}),
+		);
+		await assertSucceeds(
+			ownerContext().firestore().doc('financeRules/rule-1').delete(),
+		);
+	});
+
+	test('non-owner cannot create, update, or delete', async () => {
+		await seed(async (db) => {
+			await db
+				.doc('financeRules/rule-1')
+				.set({account: null, assignedMajorCategory: '趣味・娯楽'});
+		});
+		await assertFails(
+			otherUserContext()
+				.firestore()
+				.doc('financeRules/rule-2')
+				.set({account: null, assignedMajorCategory: '趣味・娯楽'}),
+		);
+		await assertFails(
+			otherUserContext()
+				.firestore()
+				.doc('financeRules/rule-1')
+				.update({assignedMajorCategory: '日用品'}),
+		);
+		await assertFails(
+			otherUserContext().firestore().doc('financeRules/rule-1').delete(),
+		);
+	});
+});

@@ -1,6 +1,7 @@
 import {IonIcon} from '@ionic-solidjs/core';
 import {
 	calendarOutline,
+	cashOutline,
 	chevronBackOutline,
 	chevronForwardOutline,
 	flagOutline,
@@ -137,6 +138,15 @@ export const WeightIcon = (props: IconProps): JSX.Element => (
 export const GameIcon = (props: IconProps): JSX.Element => (
 	<IonIcon
 		icon={gameControllerOutline}
+		style={iconSize(props.size ?? 14)}
+		class={props.class}
+		aria-hidden="true"
+	/>
+);
+
+export const FinanceIcon = (props: IconProps): JSX.Element => (
+	<IonIcon
+		icon={cashOutline}
 		style={iconSize(props.size ?? 14)}
 		class={props.class}
 		aria-hidden="true"
