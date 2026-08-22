@@ -65,6 +65,7 @@ export const normalizeMoneyforwardRow = (
 				sourceMajorCategory: majorCategory,
 				sourceMinorCategory: minorCategory,
 				account: raw.account || null,
+				itemName: null,
 				isTransfer: excludedFromTotals,
 				matchedRuleId: null,
 			},

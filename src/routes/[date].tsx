@@ -95,6 +95,9 @@ const LogEntryItem = (props: {entry: LogEntry; isLast: boolean}) => {
 						{entry.endAt && ` - ${formatTime(entry.endAt.toDate())}`}
 					</span>
 				</div>
+				{entry.finance?.itemName && entry.finance.itemName !== entry.title && (
+					<p class="mt-1.5 text-[13px] opacity-80">{entry.finance.itemName}</p>
+				)}
 				{entry.summary && (
 					<p class="mt-1.5 text-[13px] opacity-80">{entry.summary}</p>
 				)}

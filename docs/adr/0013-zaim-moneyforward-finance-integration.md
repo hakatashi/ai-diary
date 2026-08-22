@@ -21,12 +21,15 @@ interface FinanceDetails {
   sourceMajorCategory: string; // データソース側の元カテゴリ(ルール再適用の起点)
   sourceMinorCategory: string | null;
   account: string | null; // Zaimの口座名 / Moneyforwardの保有金融機関名
+  itemName: string | null; // Zaimの品名(nameフィールド)。Moneyforwardは常にnull
   isTransfer: boolean; // 口座間振替(集計対象外)
   matchedRuleId: string | null; // 適用された自動振り分けルールのID
 }
 ```
 
 `sourceType` に `zaim_money` / `moneyforward_transaction`、`category` に `finance` を追加。JPY以外の通貨(Zaimは複数通貨対応)は本フェーズでは非対応(`known-issues.md` に記載)。
+
+Zaimの `place`(店名)と `name`(品名)は独立したフィールドだが、`title` は `place` を優先して使うため、両方入力されている記録では `name` が画面上どこにも表示されずに失われてしまっていた(実接続でのフィードバックにより判明)。これを `finance.itemName` として保持し、`title` と重複しない場合のみ日誌(`/[date]`)と `/finance` の取引一覧に追加表示するようにした。
 
 ### Zaim: OAuth 1.0a + 定期同期
 

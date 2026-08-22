@@ -10,6 +10,7 @@ const baseFinance: FinanceDetails = {
 	sourceMajorCategory: '食費',
 	sourceMinorCategory: '食費',
 	account: 'モバイルPASMO',
+	itemName: null,
 	isTransfer: false,
 	matchedRuleId: null,
 };

@@ -166,6 +166,12 @@ const TransactionList = (props: {entries: FinanceLogEntry[]}) => (
 						<p class="truncate font-heading text-[13px] font-extrabold">
 							{entry.title}
 						</p>
+						{entry.finance.itemName &&
+							entry.finance.itemName !== entry.title && (
+								<p class="truncate text-[12px] opacity-80">
+									{entry.finance.itemName}
+								</p>
+							)}
 						<p class="truncate text-[11px] text-text/55">
 							{entry.date} ・ {entry.finance.majorCategory}
 							{entry.finance.minorCategory &&

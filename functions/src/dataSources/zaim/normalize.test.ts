@@ -41,9 +41,34 @@ test('normalizeZaimMoneyRecord maps a payment record to a negative amount', () =
 		sourceMajorCategory: '食費',
 		sourceMinorCategory: '食料品',
 		account: 'モバイルPASMO',
+		itemName: null,
 		isTransfer: false,
 		matchedRuleId: null,
 	});
+});
+
+test('normalizeZaimMoneyRecord keeps the item name even when place is also present', () => {
+	const {entry} = normalizeZaimMoneyRecord(
+		{
+			id: 384,
+			mode: 'payment',
+			date: '2026-08-03',
+			category_id: 101,
+			genre_id: 10101,
+			from_account_id: 1,
+			to_account_id: 0,
+			amount: 450,
+			comment: '',
+			name: 'たまごサンド',
+			place: 'サブウェイ',
+			currency_code: 'JPY',
+		},
+		maps,
+	);
+
+	// titleはplaceを優先するため、nameだけがそのまま失われないようfinance.itemNameに残す。
+	expect(entry.title).toBe('サブウェイ');
+	expect(entry.finance?.itemName).toBe('たまごサンド');
 });
 
 test('normalizeZaimMoneyRecord maps an income record to a positive amount using to_account_id', () => {

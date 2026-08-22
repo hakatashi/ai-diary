@@ -27,6 +27,7 @@ test('normalizeMoneyforwardRow maps a payment row', () => {
 		sourceMajorCategory: '食費',
 		sourceMinorCategory: '食料品',
 		account: 'みんなの銀行',
+		itemName: null,
 		isTransfer: false,
 		matchedRuleId: null,
 	});

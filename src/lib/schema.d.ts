@@ -90,6 +90,12 @@ export interface FinanceDetails {
 	sourceMinorCategory: string | null;
 	/** Zaimの口座名 / Moneyforwardの保有金融機関名。 */
 	account: string | null;
+	/**
+	 * Zaimの品名(nameフィールド)。titleには店名(place)を優先して使うため、
+	 * 両方が入力されている場合は品名がtitleに反映されず失われてしまう。それを防ぐために
+	 * 保持する。Moneyforwardには対応する概念がないため常にnull。
+	 */
+	itemName: string | null;
 	/** 口座間振替、またはMoneyforwardの「計算対象」外の記録。支出・収入の集計から除外する。 */
 	isTransfer: boolean;
 	/** 適用された financeRules のドキュメントID(未適用ならnull)。 */

@@ -75,6 +75,7 @@ export const normalizeZaimMoneyRecord = (
 				sourceMajorCategory: majorCategory,
 				sourceMinorCategory: minorCategory,
 				account,
+				itemName: raw.name || null,
 				isTransfer,
 				matchedRuleId: null,
 			},
