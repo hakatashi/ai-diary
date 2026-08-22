@@ -101,7 +101,7 @@ test('normalizeNutritionLog builds a logEntry from a nutrition-log data point', 
 			},
 			mealType: 'DINNER',
 			foodDisplayName: '夕食(塩麹揚げ・十六穀米)',
-			energy: {value: 1114},
+			energy: {kcal: 1114},
 		},
 	};
 	const {id, entry} = normalizeNutritionLog(raw);

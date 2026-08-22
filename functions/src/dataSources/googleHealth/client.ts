@@ -112,11 +112,11 @@ export const listExercises = (
 
 // nutrition-logはexerciseと同じセッション種別のデータタイプのため、
 // civil_start_timeによる範囲フィルタのみサポートされる。ただしfilter式のパス先頭は
-// URLパスセグメント(kebab-case)の"nutrition-log"ではなくJSONレスポンスのフィールド名
-// (camelCase)である"nutritionLog"を使う必要がある(実接続で確認済み。"nutrition-log"を
-// 使うと `Restriction member path segment 'nutrition-log' does not match any data type`
-// エラーになる)。exercise/sleep/weightはdataTypeIdとJSONフィールド名が一致するため
-// この問題は起きない。
+// URLパスセグメント(kebab-case)の"nutrition-log"でもJSONレスポンスのフィールド名
+// (camelCase)の"nutritionLog"でもなく、ハイフンをアンダースコアに置き換えた
+// "nutrition_log"を使う必要がある(実接続で確認済み。前者2つはいずれも
+// `Restriction member path segment '...' does not match any data type` エラーになる)。
+// exercise/sleep/weightはdataTypeIdにハイフンを含まないためこの問題は起きない。
 export const listNutritionLogs = (
 	refreshToken: string,
 	startTime: Date,
@@ -126,7 +126,7 @@ export const listNutritionLogs = (
 		refreshToken,
 		'nutrition-log',
 		buildCivilDateRangeFilter(
-			'nutritionLog.interval.civil_start_time',
+			'nutrition_log.interval.civil_start_time',
 			startTime,
 			endTime,
 		),

@@ -204,7 +204,7 @@ const formatMealType = (mealType: string | undefined): string =>
 	(mealType && MEAL_TYPE_LABELS[mealType]) || '食事';
 
 interface EnergyQuantity {
-	value?: number;
+	kcal?: number;
 }
 
 interface NutritionLogData {
@@ -225,7 +225,8 @@ export interface NormalizedNutritionLog {
 }
 
 // 参照: https://developers.google.com/health/reference/rest/v4/users.dataTypes.dataPoints
-// energy.valueは実接続で確認した限りkcal単位で返る(EnergyUnitがJOULE等になるケースは未確認)。
+// energyは実接続で確認した限り{kcal: number}という形で返る(公式リファレンスが示す
+// EnergyQuantity{value, unit}形式ではない)。
 export const normalizeNutritionLog = (
 	raw: RawNutritionDataPoint,
 ): NormalizedNutritionLog => {
@@ -236,7 +237,7 @@ export const normalizeNutritionLog = (
 	const endDate = interval.endTime ? new Date(interval.endTime) : null;
 
 	const sourceRecordId = point.name ?? `nutrition_${interval.startTime}`;
-	const calories = energy?.value;
+	const calories = energy?.kcal;
 
 	const id = createHash('sha256')
 		.update(`google_health_nutrition:${sourceRecordId}`)
