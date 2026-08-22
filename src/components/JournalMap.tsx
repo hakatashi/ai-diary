@@ -6,6 +6,9 @@ import type {LogEntry, LogEntryCategory} from '~/lib/schema.ts';
 
 const CATEGORY_COLOR: Record<LogEntryCategory, string> = {
 	exercise: '#ec3013',
+	nutrition: '#7d7979',
+	sleep: '#7d7979',
+	weight: '#7d7979',
 	location: '#7d7979',
 	checkin: '#ec3013',
 	calendar: '#7d7979',

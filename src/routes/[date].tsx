@@ -11,7 +11,10 @@ import {
 	ChevronRightIcon,
 	LocationIcon,
 	MapIcon,
+	NutritionIcon,
 	PhotoIcon,
+	SleepIcon,
+	WeightIcon,
 } from '~/components/icons';
 import JournalMap from '~/components/JournalMap';
 import MemoEditor from '~/components/MemoEditor';
@@ -33,6 +36,9 @@ const CATEGORY_ICON: Record<
 	(props: {size?: number}) => JSX.Element
 > = {
 	exercise: ActivityIcon,
+	nutrition: NutritionIcon,
+	sleep: SleepIcon,
+	weight: WeightIcon,
 	location: LocationIcon,
 	checkin: CheckinIcon,
 	calendar: CalendarIcon,
@@ -103,6 +109,11 @@ const LogEntryItem = (props: {entry: LogEntry; isLast: boolean}) => {
 						{entry.metrics.avgHeartRate !== undefined && (
 							<span class="tag tag-neutral">
 								平均心拍 {entry.metrics.avgHeartRate}bpm
+							</span>
+						)}
+						{entry.metrics.weightKilograms !== undefined && (
+							<span class="tag tag-neutral">
+								{entry.metrics.weightKilograms.toFixed(1)}kg
 							</span>
 						)}
 					</div>

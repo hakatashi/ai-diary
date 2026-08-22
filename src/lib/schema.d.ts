@@ -42,6 +42,9 @@ export interface DataSource extends DocumentData {
 
 export type LogEntrySourceType =
 	| 'google_health_exercise'
+	| 'google_health_nutrition'
+	| 'google_health_sleep'
+	| 'google_health_weight'
 	| 'google_calendar_event'
 	| 'google_maps_visit'
 	| 'google_maps_activity'
@@ -52,6 +55,9 @@ export type LogEntrySourceType =
 
 export type LogEntryCategory =
 	| 'exercise'
+	| 'nutrition'
+	| 'sleep'
+	| 'weight'
 	| 'location'
 	| 'checkin'
 	| 'calendar'
@@ -62,6 +68,7 @@ export interface LogEntryMetrics {
 	distanceMeters?: number;
 	calories?: number;
 	avgHeartRate?: number;
+	weightKilograms?: number;
 }
 
 export interface LogEntry extends DocumentData {

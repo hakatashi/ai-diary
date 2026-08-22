@@ -7,8 +7,11 @@ import {
 	imageOutline,
 	locationOutline,
 	mapOutline,
+	moonOutline,
 	pencilOutline,
 	pulseOutline,
+	restaurantOutline,
+	scaleOutline,
 } from 'ionicons/icons';
 import type {JSX} from 'solid-js';
 
@@ -97,6 +100,33 @@ export const CalendarIcon = (props: IconProps): JSX.Element => (
 export const PhotoIcon = (props: IconProps): JSX.Element => (
 	<IonIcon
 		icon={imageOutline}
+		style={iconSize(props.size ?? 14)}
+		class={props.class}
+		aria-hidden="true"
+	/>
+);
+
+export const NutritionIcon = (props: IconProps): JSX.Element => (
+	<IonIcon
+		icon={restaurantOutline}
+		style={iconSize(props.size ?? 14)}
+		class={props.class}
+		aria-hidden="true"
+	/>
+);
+
+export const SleepIcon = (props: IconProps): JSX.Element => (
+	<IonIcon
+		icon={moonOutline}
+		style={iconSize(props.size ?? 14)}
+		class={props.class}
+		aria-hidden="true"
+	/>
+);
+
+export const WeightIcon = (props: IconProps): JSX.Element => (
+	<IonIcon
+		icon={scaleOutline}
 		style={iconSize(props.size ?? 14)}
 		class={props.class}
 		aria-hidden="true"
