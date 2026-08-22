@@ -101,19 +101,16 @@ export const recordPlayniteSession = onRequest(
 				{merge: true},
 			);
 
-			await db
-				.collection('dataSources')
-				.doc(DATA_SOURCE_ID)
-				.set(
-					{
-						status: 'connected',
-						lastSyncedAt: now,
-						lastSyncStatus: 'success',
-						lastSyncError: null,
-						updatedAt: now,
-					},
-					{merge: true},
-				);
+			await db.collection('dataSources').doc(DATA_SOURCE_ID).set(
+				{
+					status: 'connected',
+					lastSyncedAt: now,
+					lastSyncStatus: 'success',
+					lastSyncError: null,
+					updatedAt: now,
+				},
+				{merge: true},
+			);
 
 			logInfo(`Recorded Playnite session: ${body.gameName}`);
 			res.status(200).json({status: 'ok'});

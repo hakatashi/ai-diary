@@ -38,10 +38,10 @@ const syncImmichNow = httpsCallable<{fullBackfill?: boolean}, unknown>(
 	functions,
 	'syncImmichNow',
 );
-const connectPlaynite = httpsCallable<undefined, {status: 'ok'; ingestToken: string}>(
-	functions,
-	'connectPlaynite',
-);
+const connectPlaynite = httpsCallable<
+	undefined,
+	{status: 'ok'; ingestToken: string}
+>(functions, 'connectPlaynite');
 const importGoogleMapsTimelineChunk = httpsCallable<
 	{segments: Record<string, unknown>[]},
 	{imported: number; skipped: number}
@@ -588,9 +588,7 @@ const PlayniteCard = () => {
 	return (
 		<li class="flex flex-col gap-2 border-divider border-b-2 pb-4">
 			<div>
-				<p class="font-heading font-extrabold">
-					Playnite (PCゲームプレイ記録)
-				</p>
+				<p class="font-heading font-extrabold">Playnite (PCゲームプレイ記録)</p>
 				<p class="text-[12px] text-text/55">
 					Playnite拡張(PowerShellスクリプト)がゲーム終了時にプレイ記録をpushします。定期自動同期はなく、接続するとingestトークンが一度だけ表示されるので拡張の設定ファイルにコピーしてください。
 				</p>
