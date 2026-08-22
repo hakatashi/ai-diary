@@ -1,6 +1,13 @@
 # AGENTS.md
 
-このドキュメントは、ai-diaryプロジェクトの全体設計・拡張計画と、今後このリポジトリで開発作業(AIエージェントによるものを含む)を行う際に必要なコンテキストをまとめたものです。実装を変更した際は、設計思想やアーキテクチャに影響する変更であればこのファイルも合わせて更新してください。
+このドキュメントは、ai-diaryプロジェクトで開発作業(AIエージェントによるものを含む)を行う際に常に踏まえておくべき最新情報をまとめたものです。**このファイルは毎回エージェントのコンテキストに自動的に読み込まれるため、内容は「開発中いつでも気をつけるべきこと」に絞り、簡潔に保ってください。** 個々の設計判断の背景・経緯・実接続で判明した細かい仕様は `docs/adr/` のADR(Architecture Decision Record)に記録し、このファイルからは要点1行+リンクのみを参照します。詳細が必要な作業(該当データソースの改修など)を行う際は、該当ADRを個別に読んでください。
+
+## AGENTS.mdを肥大化させないためのルール
+
+- **新しいアーキテクチャ上の決定・実接続で判明した仕様の詳細・トラブルシューティングの経緯は、このファイルに直接書き足さず `docs/adr/NNNN-slug.md` として追加すること。** テンプレートは `docs/adr/TEMPLATE.md`。番号は既存ファイルの最大値+1の連番。
+- 追加したADRは、下記「アーキテクチャ決定(ADR)一覧」に1行(タイトルとリンクのみ)を追記する。
+- このファイル自体に新しい章立てを増やす前に、それが「毎回のタスクで踏まえるべき現在進行形のルール」なのか、「過去の一回限りの決定の経緯」なのかを自問し、後者ならADRに書く。
+- 手動セットアップ手順は `docs/manual-setup-checklist.md`、未実装・既知の制約は `docs/known-issues.md` に追記する(このファイルには書かない)。
 
 ## プロジェクトの目的
 
@@ -10,7 +17,7 @@
 
 ## 開発方針: フェーズ分割
 
-一度に全機能を実装せず、以下のフェーズに分けて開発する。進捗はGitHub Project「[ai-diary 開発ロードマップ](https://github.com/users/hakatashi/projects/2)」のkanbanボードで管理する(フェーズ単位のカードのみ、個別タスクはカード化しない)。
+一度に全機能を実装せず、フェーズに分けて開発する。進捗はGitHub Project「[ai-diary 開発ロードマップ](https://github.com/users/hakatashi/projects/2)」のkanbanボードで管理する(フェーズ単位のカードのみ、個別タスクはカード化しない)。新しいフェーズに着手する際は、GitHub Projectに新しいフェーズカードを追加し、既存のフェーズと同様にステータスを更新すること。
 
 - **フェーズ1(実装済み)**: 認証基盤 + Google Health API連携(運動記録) + 日誌基本機能
 - **フェーズ2(実装済み)**: 追加データソース(Google Calendar, Google Maps Timeline, Swarm, Immich)+ カレンダービュー・一覧ビュー + データソース間の意味的重複の統合
@@ -18,7 +25,7 @@
 - **フェーズ4**: AIパートナー機能(Gemini API連携、自動メッセージ生成、チャット、複数ペルソナ、長期記憶、Web Push配信)
 - **フェーズ5**: 残りのデータソース(Home Assistant、SNS)、全体の仕上げ・拡張
 
-新しいフェーズに着手する際は、GitHub Projectに新しいフェーズカードを追加し、既存のフェーズと同様にステータスを更新すること。
+将来フェーズで必要になる認証情報の一覧は `docs/known-issues.md` を参照。
 
 ## 技術スタック
 
@@ -32,144 +39,31 @@
 
 Firebaseプロジェクト: `hakatadiary`(`.firebaserc` に設定済み)。
 
-## アーキテクチャ上の重要な決定と理由
+## アーキテクチャ決定(ADR)一覧
 
-### 1. 認証: 静的SPA + クライアント側ガード(SSRは採用しない)
+過去の設計判断はすべて `docs/adr/` に記録している。実装の経緯・トレードオフ・実接続で判明した仕様が必要な場合は該当ファイルを参照すること。
 
-`app.config.ts` は `ssr: false` のままであり、`firebase.json` の hosting rewrite も `"**" → "/index.html"` の純粋な静的SPA配信になっている。
+- [0001](docs/adr/0001-static-spa-client-side-auth-guard.md) — 認証: 静的SPA + クライアント側ガード(SSRは不採用)
+- [0002](docs/adr/0002-secret-manager-vs-firestore-secrets.md) — 秘密情報: Secret Managerと`dataSourceSecrets`(Firestore)の使い分け
+- [0003](docs/adr/0003-firestore-normalized-log-entries-schema.md) — Firestoreデータモデル: 正規化された`logEntries`スキーマ
+- [0004](docs/adr/0004-callable-functions-centric-design.md) — Cloud Functions: Callable Functions中心設計
+- [0005](docs/adr/0005-collection-doc-reuse-pattern.md) — `Collection.tsx`/`Doc.tsx` 再利用パターン
+- [0006](docs/adr/0006-google-oauth-flow-factory.md) — Google OAuth連携の共通化(`createGoogleOAuthFlow`)、Swarm独自OAuth
+- [0007](docs/adr/0007-google-maps-timeline-manual-import.md) — Google Maps Timelineの手動インポート設計
+- [0008](docs/adr/0008-immich-photo-source.md) — 写真データソース: Immich(自己ホスト、APIキー認証)
+- [0009](docs/adr/0009-journal-map-and-photos.md) — 日誌ページの地図(Leaflet)・写真表示
+- [0010](docs/adr/0010-google-health-nutrition-sleep-weight.md) — Google Health連携の拡張(食事・睡眠・体重)
+- [0011](docs/adr/0011-google-health-api-integration-details.md) — Google Health API連携の実装詳細(運動記録・GPSトラック)
 
-「全ページ認証必須」は、SolidStartの `middleware.ts`(サーバーサイドガード)ではなく、以下の2層で実現している:
+## 開発中、常に守るべきルール
 
-1. **`src/components/AuthGuard.tsx`**: `app.tsx` の `Router root` 内で全ルートをラップするクライアント側コンポーネント。`solid-firebase` の `useAuth` で認証状態を監視し、未ログインまたは許可外メール(`src/lib/constants.ts` の `ALLOWED_EMAIL`)の場合は `/login` へ `<Navigate>` する。`/login` 自身はガード対象外(無限リダイレクトループ防止)。
-2. **Firestore Security Rules(`firestore.rules`)**: 実データ保護の**唯一の真の境界**。`request.auth.token.email == 'hakatasiloving@gmail.com' && request.auth.token.email_verified` を満たさない限り一切のread/writeを許可しない。owner/非owner/未認証の3パターンでの許可・拒否は `firestore.rules.test.ts`(`@firebase/rules-unit-testing` の `initializeTestEnvironment` を使用、`npm test` に含まれる)で自動検証している。
-
-この方式を選んだ理由: SolidStart + Firebase HostingでのSSR化(Nitroの `firebase` プリセットをCloud Functions Gen2にデプロイする構成)は主にNuxt向けに検証されており、SolidStartでの実績が薄く動作未検証のリスクが高いと判断したため。ページシェル自体には機密データを一切含まない(全データはFirestoreのリアクティブ購読経由でのみ取得される)ため、クライアント側ガードでも実害はない。**将来的にSSR化が本当に必要になった場合は、`app.config.ts` の `ssr: false` を外し、Nitroの `firebase` プリセットの動作検証をスパイクタスクとして独立させてから着手すること。**
-
-### 2. 秘密情報管理: Secret Manager と Firestore の使い分け
-
-Google Cloud Secret Managerの無料枠(1プロジェクトあたり月間アクティブシークレットバージョン6個まで)を超えないよう、以下の方針で厳格に運用する:
-
-- **Secret Manager(`firebase functions:secrets:set` で登録、コードでは `defineSecret` で参照)**: アプリ全体で共有する静的なグローバル設定のみ。現在登録済みなのは `GEMINI_API_KEY`、`GOOGLE_CLIENT_SECRET`、`FOURSQUARE_OAUTH_CLIENT_SECRET`(Swarm連携用)、`GOOGLE_PLACES_API_KEY`(Google Maps Timelineの訪問先名称解決用)の4つ(合計4アクティブバージョン、予算6に対しまだ余裕あり)。`FOURSQUARE_OAUTH_CLIENT_SECRET`/`GOOGLE_PLACES_API_KEY`は値が用意でき次第 `firebase functions:secrets:set` で登録する(下記「手動セットアップチェックリスト」参照。このリポジトリでのCLI操作では意図的に未設定のままにしてある)。
-- **`GOOGLE_CLIENT_ID` / `FOURSQUARE_OAUTH_CLIENT_ID`**: 非秘匿情報(OAuthクライアントIDはリダイレクトURLにも露出する)なので、Secret Managerを使わず `defineString`(`functions/src/lib/secrets.ts`)で扱う。値は `functions/.env.hakatadiary`(gitignore対象、Secret Managerの予算を消費しない)に置く。
-- **`dataSourceSecrets/{dataSourceId}` コレクション(Firestore)**: 各データソース固有の認証情報(OAuthのrefresh tokenなど)。クライアントからは `firestore.rules` で完全に遮断(`allow read, write: if false;`)され、Cloud Functions(Admin SDK)からのみアクセス可能。新しいデータソースを追加する際は、この方式(Firestoreへの保存)をデフォルトとし、Secret Managerには追加しないこと。
-
-新しいデータソースの秘密情報(Zaimのconsumer key/secret、Home Assistantの長期アクセストークン等)も、原則としてこの `dataSourceSecrets` パターンに従う。ユーザーがブラウザから直接入力する形の認証情報(APIキーなど)は、専用のCallable Functionを用意してAdmin SDK経由で書き込む設計にすること(クライアントから直接Firestoreに書き込ませない)。
-
-### 3. Firestoreデータモデル: 複数データソース統合を見据えた正規化スキーマ
-
-```
-dataSources/{dataSourceId}       -- データソースのメタデータ(接続状態、最終同期日時等)。クライアント読み取り可
-dataSourceSecrets/{dataSourceId} -- 認証情報。クライアント完全遮断
-oauthStates/{state}              -- OAuth CSRF対策の使い捨てトークン。クライアント完全遮断
-logEntries/{logEntryId}          -- 正規化された時系列ログ。将来の全データソースがここに集約される
-journalEntries/{date}            -- 日毎の日誌(手動メモ、将来はAI要約もここに追加)
-placesCache/{placeId}            -- Google Places API (New) で解決した場所詳細のキャッシュ。クライアント完全遮断
-placesApiUsage/{yyyy-mm}         -- Places APIの月間呼び出し回数カウンタ(無料枠管理用)。クライアント完全遮断
-```
-
-`logEntries` が本アプリの中核。ドキュメントIDは `${sourceType}:${sourceRecordId}` から決定的に生成する(現在は `normalize.ts` 内でSHA-256ハッシュ化)ことで、再同期時の冪等なupsertを保証している。フィールド設計:
-
-- `sourceType`: データソース内での細かい種別(例: `google_health_exercise`)。1つの `dataSources` エントリが将来複数の `sourceType` を出すケースを想定
-- `category`: UI表示用の粗い分類(`exercise`, 将来 `finance`/`location`/`media`/`social`/`home`)
-- `date`: `YYYY-MM-DD`(Asia/Tokyo基準)。日別一覧クエリのキー
-- `metrics`: ソース横断で比較可能な数値のみ(継続時間、距離、カロリー等)
-- `raw`: 元データをほぼそのまま保持(再要約・再処理に備える。ドキュメント1MiB上限に注意。GPSトラック等大容量データはraw格納方法を将来再検討する必要がある)
-- `hidden` / `dedupedInto`: 意味的重複統合(下記)で他エントリに吸収された場合に `hidden: true` かつ `dedupedInto` に統合先の `logEntryId` を設定する。**削除はしない**(生データは保持し、統合ロジックの見直しで復元できるようにする)。クライアント側の一覧系クエリは `hidden === true` のエントリを表示しない(`src/lib/logEntries.ts` の `visibleLogEntries`/`isVisible` で統一的にフィルタする。Firestoreの `!=` フィルタはフィールド欠如ドキュメントを暗黙に除外してしまうため、あえてクエリではなくクライアント側フィルタとしている)。
-
-**意味的に重複するデータソース(Google Mapsの訪問履歴とSwarmのチェックインなど)の名寄せは `functions/src/dataSources/dedup/dedupeVisitsAndCheckins.ts` で実装済み。** `sourceType === 'google_maps_visit'` のエントリと `category === 'checkin'`(Swarm)のエントリについて、`startAt` の差が20分以内かつ位置(haversine距離)が200m以内の場合に同一訪問イベントとみなし、Swarm側を `hidden` にする。Swarm同期後・Maps Timelineインポート後に対象日付で自動実行されるほか、`/data-sources` の「メンテナンス」セクションから任意の日付範囲で手動再実行できる(`dedupeLogEntriesNow` Callable)。他の組み合わせ(例: Google Calendarの予定とImmichの写真)の統合は未実装で、将来のフェーズで検討する。対象日付ごとのクエリは `mapWithConcurrency` で並列実行し、マッチした更新は日付ごとに個別commitせず全日付分をまとめてから `WriteBatch` でコミットする(Google Maps Timelineインポート時に多数の日付が一度に渡されるケースでのFirestore往復回数を削減するため)。
-
-### 4. Cloud Functions: Cookie不要のCallable Functions中心設計
-
-静的SPA構成のため、Cookieベースのセッション共有は行わない。認証が必要な処理は原則Firebase **Callable Functions**(`onCall`)にし、Firebase Functions Client SDK(`firebase/functions`)の組み込み認証コンテキストを利用する。OAuthコールバックのようにブラウザの生ナビゲーション(GET)を受ける必要がある処理のみ `onRequest` にし、使い捨ての `oauthStates` ドキュメントでCSRF対策と認可の連続性を担保する(詳細は `functions/src/dataSources/googleHealth/oauth.ts` のコメント参照)。
-
-関数はレイテンシ低減のため `asia-northeast1` リージョンを明示指定している。新しい関数を追加する際もこれに合わせること。
-
-### 5. `Collection.tsx` / `Doc.tsx` の再利用パターン
-
-`src/lib/Collection.tsx` と `src/lib/Doc.tsx` は `solid-firebase` の `useFirestore` 戻り値(`UseFireStoreReturn`)を受け取り、loading/error/empty/dataの状態を出し分けする再利用可能なラッパー。新しいFirestoreクエリ結果を表示する画面は、原則としてこの2つのコンポーネントを再利用すること(車輪の再発明をしない)。
-
-### 6. Google OAuth連携の共通化(`functions/src/lib/googleOAuth.ts`)
-
-Google Health(フェーズ1)に加え、フェーズ2でGoogle Calendarとの新しいGoogle OAuth連携が増えたため、「state発行→認可URL生成→コールバックでtoken交換→`dataSources`/`dataSourceSecrets`更新」という一連の流れを `createGoogleOAuthFlow({dataSourceId, displayName, category, scope, callbackFunctionName})` ファクトリに共通化した。各データソースの `oauth.ts` はこのファクトリを呼び出して `beginXxxOAuth`/`xxxOAuthCallback` を生成するだけでよい。`callbackFunctionName` は `functions/src/index.ts` でのexport名(=実際にデプロイされる関数名)と一致させる必要がある(リダイレクトURIの構築に使うため)。また、refresh tokenからaccess tokenを取得する `getGoogleAccessToken` も同ファイルで共通化し、各データソースの `client.ts` から利用する。なお、ImmichはOAuthを持たずAPIキー認証のみのため、このファクトリは使わない(詳細は下記アーキテクチャ決定8を参照)。
-
-Swarm(Foursquare)はGoogleとは無関係の独自OAuth2フローのため、このファクトリは使わず `functions/src/dataSources/swarm/oauth.ts` に個別実装している。Foursquareのアクセストークンは(v2 APIでは)明示的に失効しないため、refresh tokenの概念がなく `credentialType: 'oauth2_access_token'` として `payload.accessToken` をそのまま保存する。
-
-**チェックイン履歴の取得には `/v2/users/self/checkins`(classic v2 API)を使う。** 当初は参考記事に従い `/v2/users/self/historysearch` を使っていたが、実接続で `402 credits_exhausted` エラーとなった。これはFoursquareのPersonalization API(2026年6月から段階的従量課金が導入され、月500コールの無料枠のみ)側のエンドポイントで、`historysearch` はこちらに属するため即座に枠を使い切ってしまう。一方 `checkins`/`lists`/`tastes`/`tips`/ユーザー系のエンドポイントは無料のまま継続されるとFoursquareの公式ドキュメントに明記されているため、同じくユーザーのチェックイン履歴を返す `/v2/users/self/checkins` に切り替えた(`functions/src/dataSources/swarm/client.ts`)。ページネーションは `beforeTimestamp` ではなく `offset`/`limit` 方式(レスポンスの `response.checkins.count`/`response.checkins.items` を使う)。なお、v2 APIのレガシーエンドポイントは2026年5月15日に廃止予定とFoursquareが告知しているため、将来的に新しいPlaces API/Personalization API体系への再移行が必要になる可能性がある。
-
-### 7. Google Maps Timelineの手動インポート設計
-
-Google Maps Timelineのエクスポート(Google Takeout等で取得する `Timeline.json`)はAPIが存在しないため、ユーザーがブラウザから直接JSONファイルをアップロードする方式にした(`/data-sources` の該当カード)。設計上の要点:
-
-- **パースはすべてクライアント側で行う**(`file.text()` → `JSON.parse()`)。ファイルは数十MB〜100MB超になりうるため、Cloud Storageは使わずブラウザのメモリ上で完結させている。
-- `semanticSegments` のうち `visit`/`activity`/`timelinePath`(生GPSトラック)/`timelineMemory`(思い出メモ)を持つセグメントを対象とする。トップレベルの `rawSignals`(生GPS/Wi-Fi信号、直近1ヶ月のみのローリングウィンドウで通し履歴を構成できない)と `userLocationProfile`(頻出地点等の単一集計データで`logEntries`の時系列モデルに馴染まない)は意図的に取込対象外としている。
-- **書き込み前に必ず件数を確認ダイアログで表示**し(「訪問記録◯件・移動記録◯件・GPS経路◯件・思い出メモ◯件をインポートします」)、ユーザーの明示的な確認を経てから送信する。
-- クライアントは対象セグメントを**日時が新しい順に並べ替えてから**400件ずつのチャンクに分割し、`importGoogleMapsTimelineChunk` Callableを順番に呼び出す(`firestore.rules` で `logEntries` はクライアント書き込み不可のため、大量インポートも必ずCallable経由になる)。新しい順に処理するのは、数万件規模のインポートが途中で中断されても直近のデータが優先的に取り込まれるようにするため。Callable内部ではFirestore `WriteBatch` を使い、1コミットあたり450件以下に分割してコミットする(Firestoreの1コミットあたり500件上限に対して余裕を持たせている)。クライアント側の `httpsCallable` は明示的に `timeout: 300_000`(バックエンドの `timeoutSeconds: 300` と同値)を指定している(SDKデフォルトの70秒でクライアント側が先にタイムアウトし、バックエンドがまだ処理中でも「インポート中にエラーが発生しました。」と表示されてしまう不具合が実際に発生したため)。
-  - **1チャンク内のセグメント正規化は `functions/src/lib/concurrency.ts` の `mapWithConcurrency`(worker-poolパターン、同時実行数40)で並列化している。** 当初は`for...of`による逐次awaitだったため、Firestore読み取り・Places API呼び出し・Storage書き込みを含む400件の処理が70秒(クライアントのデフォルトタイムアウト)を超えて失敗する不具合があった。同様に `dedupeVisitsAndCheckins`(下記)の日付ごとの処理も同時実行数20で並列化済み。並列度は暫定値であり、実インポートでの調整が必要になる可能性がある。
-- 訪問(`visit`)セグメントの `placeId` は `functions/src/dataSources/googleMapsTimeline/placesClient.ts` の `resolvePlacesBatch` でまとめて場所名を解決する。1件ずつ `get`/`set` するとplaceId件数分のFirestore往復が発生するため、チャンク内の全placeIdを `db.getAll()` で一括参照し、未キャッシュ分だけPlaces API (New) で解決したうえで新規エントリを `batch.commit` でまとめて書き込む設計にした。ただし月間呼び出しカウンタ(`placesApiUsage`、下記)への書き込みだけは意図的にAPI呼び出し1件ごとの即時書き込みのまま残している(バッチ化して遅延書き込みにすると、途中でクラッシュした際に実際に発生した呼び出し回数を記録し損ね、無料枠管理の安全性が損なわれるため)。**`GOOGLE_PLACES_API_KEY` 未設定時やAPI呼び出し失敗時は例外を投げず緯度経度表記にフォールバックする**(インポート全体を失敗させない設計)。
-  - **Places API (Place Details Pro SKU) の無料枠は月5,000件**。予期しない高額請求を避けるため、`placesApiUsage/{YYYY-MM}` ドキュメント(`callCount` フィールド、Admin SDK専用)で当月の呼び出し回数を追跡し、**4,500件(500件の安全マージン)に達したら以降の呼び出しをスキップ**して緯度経度表記にフォールバックする。呼び出しはAPIレスポンスの成功・失敗を問わず記録する(リクエスト自体が課金対象になりうるため)。2026年7月時点の実績: `placesCache` の当月ドキュメント数(384件、実接続テストで判明)を初期値として本番の `placesApiUsage/2026-07` に遡及記録済み。
-  - リクエストには `languageCode=ja`/`regionCode=JP` を付与し、`displayName` 等が日本語で返るようにしている。`displayName` を要求した時点でPro SKU料金が発生するため、同じ呼び出しの中で追加費用なく取得できるEssentials/Essentials IDs Only/Pro SKUの主要フィールド(`formattedAddress`, `location`, `types`, `primaryType`, `businessStatus`, `googleMapsUri` 等)をまとめて取得し、レスポンス全体を `placesCache.raw` に保存している(同じ場所について2度目のAPI呼び出しが発生しないようにするため。フィールド一覧は `functions/src/dataSources/googleMapsTimeline/placesClient.ts` の `FIELD_MASK` 参照)。
-- 冪等性: `logEntryId` はセグメントの `startTime`/`endTime`/`placeId`(または距離)からのハッシュで決定的に生成されるため、同じエクスポートファイルを再アップロードしても重複しない。ただし大量書き込みのパフォーマンスを優先し、既存ドキュメントの `createdAt` を保持するための事前読み取りは行わず、再インポート時は `createdAt` も上書きする(このデータソースに限った簡略化)。
-- **GPSトラック(`timelinePath`)はFirebase Storageに外部化する。** 実データ(13年分のエクスポート)で検証したところ1セグメントあたり最大134点(~10KB)程度でFirestoreの1MiBドキュメント上限に単体で抵触するリスクは低いが、GPS点列はクエリ対象にならないブロブデータであり、`logEntries`をカレンダー/一覧ビューで大量に読む際の転送量を抑えるため、あえてFirestoreにインラインで持たせない設計にした。`functions/src/lib/gpsTrackStorage.ts` の `saveGpsTrack` がJSONをgzip圧縮して `gpsTracks/google_maps_path/{logEntryId}.json.gz` に保存し、`logEntries.raw` には `storagePath`/`pointCount`/`boundingBox` のみを残す(点列本体は持たない)。距離は `functions/src/dataSources/dedup/geo.ts` の既存 `haversineDistanceMeters` を再利用して連続点間で積算する。粒度は既存の「1セグメント=1logEntry」モデルをそのまま踏襲し、日次集約のような新しいデータモデルは導入していない。コスト試算: 13年分の全履歴でも圧縮後3.3MB程度(Firebase Storage無料枠5GBの0.07%)で、実質$0/月。取り込んだトラックを地図上に描画するUIは未実装(別途検討)。
-- `timelineMemory`(思い出メモ)は件数・サイズが小さいため上記の外部化は行わず、`note.note` をそのまま`logEntries.summary`としてインライン格納する(空文字の場合はスキップ)。
-- Google HealthのGPS(ウォーキング/サイクリング等のトラックログ)は概念的には同じ`gpsTrackStorage`ヘルパーを再利用できる想定だが、実際のAPIエンドポイントは未実装・未確認のため別issueで扱う。
-
-### 8. 写真データソースはImmich(自己ホスト)。API キー認証・定期自動同期対応
-
-当初フェーズ2ではGoogle Photosと連携していたが、2025年3月末にGoogleが `photoslibrary.readonly` などの広範な読み取りスコープを廃止し、既存ライブラリへの自動バックグラウンド同期が技術的に不可能になったため(参照: https://developers.google.com/photos/support/updates )、Picker APIによる都度手動インポートのみの実装になっていた。運用してみると手動インポートの手間が大きかったため、セルフホストの[Immich](https://immich.app/)への移行に伴いGoogle Photos連携を廃止し、Immich連携に置き換えた。
-
-Immichは自ホストサーバーでOAuthを持たず、ユーザー自身が発行したAPIキーで認証する。**このため他のデータソースと異なりOAuthフローが不要で、`dataSourceSecrets/immich` の `credentialType` は `api_key`(サーバーURL・APIキーをそのままペイロードに保存)になる。** ユーザーがブラウザから直接入力する認証情報の一般原則(上記「秘密情報管理」参照)通り、専用のCallable Function `connectImmich`(`functions/src/dataSources/immich/connect.ts`)がAdmin SDK経由でFirestoreに書き込む。`connectImmich` は保存前に `GET {serverUrl}/users/me` を叩いてAPIキーの有効性を検証する。
-
-写真本体を自前でホストしているため、Google Photosと異なり**定期自動同期(`scheduledSync`)の対象に含まれる**(`functions/src/dataSources/immich/sync.ts` の `syncImmichPhotos`)。一覧取得には `POST {serverUrl}/search/metadata` を使う(`functions/src/dataSources/immich/client.ts`)。実接続で判明した仕様:
-
-- `takenAfter`/`takenBefore` フィルタは日付のみの文字列(`YYYY-MM-DD`)ではエラーになり、**タイムゾーンオフセット付きのISO 8601日時文字列(例: `2026-08-01T00:00:00.000Z`)が必須**。
-- レスポンスは `{assets: {items: [...], nextPage: "2" | null}}` の形。`nextPage` を使ってページング。
-- 通常同期(3時間おき)は直近7日分のみ取得し、既存ドキュメントの `createdAt` を保持するため事前読み取りを行う(Google Calendar/Swarm同期と同方式)。手動の「全期間を同期」(`fullBackfill: true`)は暴走防止のためページ数上限(最大10,000件)を設け、Google Maps Timelineインポートと同様に事前読み取りを省いたバッチ書き込みで完結させる(この場合 `createdAt` も上書きされる)。
-- `localDateTime` フィールドは撮影地点の壁時計時刻を(実際のUTCではなく)`Z` 付きのISO文字列として返すImmich独自の仕様。`date` フィールドの算出にはこの文字列の日付部分をそのまま使い、Google Photos連携時のような固定タイムゾーン(Asia/Tokyo)での再計算はしない(`functions/src/dataSources/immich/normalize.ts`)。`startAt` には実際のUTC時刻である `fileCreatedAt` を使う。
-
-## Google Health API連携(フェーズ1の実装詳細)
-
-- Fitbit Web APIの後継API(`developers.google.com/health`)。運動記録の読み取りスコープは `https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly`。GPSトラック取得(下記参照)には `https://www.googleapis.com/auth/googlehealth.location.readonly` も追加で要求する。
-- OAuth 2.0の認可コードフロー(`access_type=offline`, `prompt=consent`)でrefresh tokenを取得し、`dataSourceSecrets/google_health` に保存する。
-- **個人利用目的はGoogleの検証審査(OAuth consent screen verification)が免除されるが、公開ステータスを「テスト中」のままにするとrefresh tokenが7日で失効する。** 本番運用には公開ステータスを「本番」に変更する必要があり、この作業はユーザー自身がGoogle Cloud Consoleで実施する(コード化不可)。
-- **`dataPoints.list` の時間範囲指定は素朴なクエリパラメータ(`startTime`/`endTime`)ではなく、AIP-160形式の `filter` パラメータで行う。** 実接続で `Unknown name "startTime"` エラーが発生したため確認・修正済み。さらに、Session種別のデータタイプ(sleep/ECGを除く)では `interval.start_time`/`interval.end_time` 自体がフィルタ不可(`INVALID_DATA_POINT_FILTER`)で、**`{type}.interval.civil_start_time`(値はcivil dateのプレーンな日付文字列、例 `"2026-07-05"`)のみがサポートされる**ことも実接続のエラーで判明し修正済み。**さらに `civil_start_time` は `GREATER_THAN_EQUALS` と `LESS_THAN` の2つのコンパレータしかサポートせず、`<=` を使うと `INVALID_DATA_POINT_FILTER_RESTRICTION_COMPARATOR` エラーになる**ことも実接続で判明した(フェーズ2のテスト中に発覚・修正)。同期対象の最終日を含めるため、上限には `endTime` の**翌日**の日付を排他境界(`<`)として使う。正しい構文は `exercise.interval.civil_start_time >= "2026-07-05" AND exercise.interval.civil_start_time < "2026-07-13"`(終了日が `2026-07-12` の場合。`functions/src/dataSources/googleHealth/client.ts` の `buildCivilDateRangeFilter`/`nextCivilDate` 参照)。
-- DataPointのレスポンス構造は `{name: "users/me/dataTypes/exercise/dataPoints/{id}", exercise: {interval: {startTime, endTime}, exerciseType, metricsSummary: {caloriesKcal, distanceMillimeters, averageHeartRateBeatsPerMinute, ...}}}` という形。`normalize.ts` はこの構造に基づいて実装済み(`exerciseType` の日本語ラベル化は主要な種目のみ対応、未知の種目はフォーマットした英語表記にフォールバック)。ただし `splits`/`exerciseEvents` 等の詳細フィールドは現時点で未活用。
-- 同期ロジック(`functions/src/dataSources/googleHealth/sync.ts`)は直近7日分を毎回取得して冪等upsertする単純な方式。データタイプ `exercise` がサポートする `reconcile` 操作(増分同期向け)への切り替えは、実装時に本当に必要か検討する。
-- **GPSトラック(ウォーキング・サイクリング等)の取込**: `dataPoints.list`(`listExercises`)のレスポンスには座標は含まれず、`users.dataTypes.dataPoints` リソースのカスタムメソッド `exportExerciseTcx`(`GET /v4/{name=users/*/dataTypes/exercise/dataPoints/*}:exportExerciseTcx?alt=media`)を別途呼び出してTCX(Training Center XML v2)形式で取得する必要がある(`functions/src/dataSources/googleHealth/client.ts` の `fetchExerciseTcx`)。`alt=media` を付けないとTCX本体ではなく `{tcxData: "..."}` というJSONラッパーが返るため必須。このメソッドは `activity_and_fitness` に加えて `location` スコープが別途必要で(未同意の場合403になる)、既存にGoogle Healthを接続済みのユーザーは**再接続(OAuth再同意)が必要**(コード化不可、ユーザー側作業。下記「手動セットアップチェックリスト」参照)。TCXのパースは正規表現ベースの軽量実装(`functions/src/dataSources/googleHealth/tcx.ts` の `parseTcxTrackpoints`)で、汎用XMLパーサは導入していない(Google Health API自身が生成する構造が固定されたマシン生成データであるため)。GPS点列は `functions/src/lib/gpsTrackStorage.ts` の `saveGpsTrack` を再利用してFirebase Storageに外部化し(`gpsTracks/google_health_exercise/{logEntryId}.json.gz`)、Google Maps Timelineの `timelinePath` とは異なり**別のlogEntryを作らず、同じエクササイズのlogEntryの `raw.gpsTrack`(storagePath/pointCount/boundingBoxのみ)と `location`(先頭座標)に合成する**(`normalize.ts` の `attachGpsTrack`)。全てのエクササイズにGPSがあるわけではなく、GPS有無を示す専用フィールド(`exerciseMetadata.hasGps`等)がAPIに存在するかは実接続で確認できなかったため、`metricsSummary.distanceMillimeters` の有無(距離メトリクスを持つ=屋外系種目である可能性が高い)という保守的な指標で `exportExerciseTcx` 呼び出し対象を絞り込んでいる(`normalize.ts` の `mayHaveGpsTrack`)。TCX取得・パース結果が0点の場合(屋内エクササイズ、スコープ未同意等)はGPSトラックなしの通常のエクササイズエントリとして扱い、同期全体は失敗させない。
-
-### 9. 日誌ページの地図・写真表示(issue #33)
-
-日誌ページ(`src/routes/[date].tsx`)の左パネルに、その日の訪問地点・GPS経路を表示する地図と、Immich写真のサムネイル横スクロール(クリックでライトボックス表示)を実装した。
-
-- **地図描画ライブラリはLeaflet(+ OpenStreetMapタイル)を採用した。** Google Maps JS APIは別途APIキー・課金設定が必要になり、Places API (New)以外の新規Google Cloud API有効化・予算管理が発生するため、個人利用規模でAPIキー不要・無料で使えるLeaflet + OSMタイルを選んだ。地図タイルはCSSの `filter: grayscale(1) contrast(1.1)` で加工し(`.journal-map .leaflet-tile-pane`、`src/app.css`)、アプリ全体のモノクロ+アクセントカラーというデザイントーンに合わせている。マーカー・経路線はこのフィルタの対象外にする必要があるため、フィルタはLeafletの `.leaflet-tile-pane` にのみスコープし、地図コンテナ全体には適用しない(`src/components/JournalMap.tsx`)。
-- 表示対象は当日の`logEntries`のうち `location` を持つもの(ピン表示)と、GPSトラックを持つもの(`sourceType === 'google_maps_path'` の `raw.storagePath`、または `google_health_exercise` の `raw.gpsTrack.storagePath`)。トラック点列はFirebase Storageから取得する(`src/lib/gpsTrack.ts`)。マーカー・経路が1件もない日は、地図の上に「この日の位置情報はまだありません」というオーバーレイを表示する。
-  - **GPSトラックのオブジェクトは`contentEncoding: gzip`メタデータ付きで保存されており(`gpsTrackStorage.ts`)、手動でのgzip解凍は行わない。** ブラウザは`fetch()`実行時に常に`Accept-Encoding: gzip`を送るため、Google Cloud Storageは圧縮済みバイト列を`Content-Encoding: gzip`付きで返し、ブラウザ側のfetch実装がこれを透過的に解凍してから`response.json()`等に渡す(標準的なHTTP Content-Encodingの挙動)。実装当初はここに`DecompressionStream('gzip')`を追加で通していたが、これは二重解凍になり不正なgzipヘッダとしてエラーになる(実機検証で発覚・修正済み)。
-  - **Firebase Storageのダウンロード(`getDownloadURL`で取得したURLへの`fetch()`)にはバケットのCORS設定が必要。** デフォルトではCORS未設定のため、本番デプロイ後に地図ページで `Access to fetch ... has been blocked by CORS policy` エラーが発生した(実機検証で発覚)。リポジトリ直下の `storage.cors.json` にオリジン(`https://hakatadiary.web.app`・`https://hakatadiary.firebaseapp.com`)・`GET`メソッドを許可する設定を用意し、`gcloud storage buckets update gs://hakatadiary.firebasestorage.app --cors-file=storage.cors.json` で適用する(Firebase CLIにCORS設定用コマンドはなく、`gcloud`/`gsutil`での手動適用が必要。バケットのCORS設定自体はfirebase.json等のプロジェクト設定ファイルでは管理されないため、ドメイン変更時等は再度手動適用が必要な点に注意)。
-- **Immich写真のサムネイル取得は、Callable Function `getImmichThumbnail`(`functions/src/dataSources/immich/thumbnail.ts`)経由でbase64 data URLとして返す方式にした。** ImmichはユーザーがOAuthを持たない自己ホストサーバーで、APIキーはFunctions側のみが保持しているため、クライアントから直接サムネイルURLを叩くことはできない。バイナリレスポンスをそのままストリームするonRequestプロキシ(CORS・Authorizationヘッダの手動検証が必要)も検討したが、個人利用規模の写真枚数・解像度であればbase64化のオーバーヘッドは無視できると判断し、既存の「Callable Functions中心設計」(上記アーキテクチャ決定4)を崩さない実装を優先した。サムネイル一覧は `size=thumbnail`、ライトボックス表示時のみ `size=preview` を追加取得する(`src/components/PhotoStrip.tsx`)。取得結果はモジュールスコープの `Map` でセッション中キャッシュし、日付間を行き来しても再取得しない。写真は元の色味のまま表示する(地図タイルと異なり、あえてグレースケール加工はしていない)。
-- GPSトラックの取得失敗(個別トラックのStorage読み取りエラー等)やサムネイル取得失敗は、該当箇所のみ表示をスキップし、地図・写真一覧全体の描画は止めない設計にしている。
-
-### 10. Google Health連携の拡張: 食事・睡眠・体重記録
-
-運動記録に加えて、食事(`nutrition-log`)・睡眠(`sleep`)・体重(`weight`)の3データタイプを取り込む(`functions/src/dataSources/googleHealth/{client,normalize,sync}.ts`)。それぞれ新しい `sourceType`(`google_health_nutrition`/`google_health_sleep`/`google_health_weight`)・`category`(`nutrition`/`sleep`/`weight`)を追加し、`src/lib/schema.d.ts`・一覧ページ・日誌ページのアイコン/ラベルマップ・`JournalMap.tsx` の `CATEGORY_COLOR` を合わせて更新済み(位置情報を持たないためピン表示はされない)。
-
-- **各データタイプは運動記録とは別のOAuthスコープが必要**(公式リファレンス https://developers.google.com/health/scopes 参照)。食事は `googlehealth.nutrition.readonly`、睡眠は `googlehealth.sleep.readonly`、体重は `googlehealth.health_metrics_and_measurements.readonly`。既存にGoogle Healthを接続済みのユーザーは、GPSスコープ追加時と同様に**再接続(OAuth再同意)が必要**(下記「手動セットアップチェックリスト」参照)。全スコープを実際に付与した本番のrefresh tokenを使い、`dataPoints.list` を直接叩いて以下の内容を全て実接続確認済み(2026年8月)。
-- **`dataPoints.list` のフィルタ構文はデータタイプの「種類」によって異なる**(公式リファレンス https://developers.google.com/health/reference/rest/v4/users.dataTypes.dataPoints/list で確認、実接続でも検証済み):
-  - `nutrition-log` は `exercise` と同じセッション種別のため、civil date範囲フィルタパターンを使う。**ただしfilter式のパス先頭はURLパスセグメント(kebab-case)の `nutrition-log` でもJSONレスポンスのフィールド名(camelCase)の `nutritionLog` でもなく、ハイフンをアンダースコアに置き換えた `nutrition_log` を使う必要がある**(`nutrition_log.interval.civil_start_time >= "..." AND ... < "..."`)。実接続で前者2つを試したところどちらも `INVALID_DATA_POINT_FILTER_DATA_TYPE_RESTRICTION`(`Restriction member path segment '...' does not match any data type`)エラーとなり、`nutrition_log`(アンダースコア区切り)で初めて成功することを本番のrefresh tokenを使った実接続で確認した。exercise/sleep/weightはdataTypeIdにハイフンを含まないためこの問題は起きない(`client.ts` の `buildCivilDateRangeFilter` を共通化して利用)。
-  - `sleep` はセッション種別の例外(ECGと同様)で、civil dateではなく素の `sleep.interval.end_time >= "ISO" AND ... < "ISO"` というRFC 3339タイムスタンプによる範囲フィルタが使える(公式リファレンスに明記、実接続でも成功を確認済み)。
-  - `weight` はサンプル種別のデータタイプで、`weight.sample_time.physical_time >= "ISO" AND ... < "ISO"` というタイムスタンプ範囲フィルタを使う(実接続でも成功を確認済み)。
-  - sleep/weightのタイムスタンプフィルタは `buildTimestampRangeFilter` として共通化(`client.ts`)。
-- **レスポンスのJSONスキーマ**(本番のrefresh tokenを使った実接続で確認済み。int64型フィールドはprotobufのJSON表現として文字列で返る点に注意):
-  - `nutrition-log`: `{name, nutritionLog: {interval: {startTime, endTime}, mealType, foodDisplayName, energy: {kcal}, totalCarbohydrate: {grams}, totalFat: {grams}, nutrients: [{nutrient, quantity: {grams}}]}}`。**`energy` は公式リファレンスが示す `EnergyQuantity{value, unit}` 形式ではなく `{kcal: number}` という実装依存の形で返ることを実接続で確認した**(`normalize.ts` はこの実際の形に合わせて実装)。`mealType`(`BREAKFAST`/`LUNCH`/`DINNER`/`SNACK`等)を日本語ラベル化してtitleに、`foodDisplayName` をsummaryに、`energy.kcal` を `metrics.calories` に格納する(`normalize.ts` の `normalizeNutritionLog`)。栄養素の詳細(`nutrients[]`、`totalCarbohydrate`/`totalFat`等)は現時点で未活用(rawには保持)。
-  - `sleep`: `{name, sleep: {interval: {startTime, endTime}, type, stages: [...], metadata: {...}, summary: {minutesAsleep, minutesAwake, minutesInSleepPeriod, minutesToFallAsleep, minutesAfterWakeUp, stagesSummary: [{type, minutes, count}]}}}`。公式リファレンス通りの構造であることを実接続で確認済み。`minutesAsleep` を `metrics.durationMinutes` に、`stagesSummary` を日本語ラベル化して睡眠段階の内訳文字列としてsummaryに整形する(`normalize.ts` の `normalizeSleep`/`formatSleepSummary`)。
-  - `weight`: `{name, weight: {sampleTime: {physicalTime, utcOffset, civilTime}, notes, weightGrams}}`。公式リファレンス通りの構造であることを実接続で確認済み。`weightGrams / 1000` を新設した `metrics.weightKilograms` に格納する(`normalize.ts` の `normalizeWeight`)。
-- **同期関数は `syncGoogleHealthExercises` から `syncGoogleHealth` にリネームし、4データタイプ(exercise/nutrition/sleep/weight)を独立にtry/catchする設計にした。** 体重のように未同意スコープで403が起きるデータタイプが1つあっても他の同期を止めないため。全データタイプ成功なら `lastSyncStatus: 'success'`、一部成功なら `'partial'`(型定義済みだが本連携が初の実利用)、全滅なら `'error'`(かつ `dataSources.status` も `'error'` にしてCallable呼び出し元にthrowする)。`lastSyncError` には失敗したデータタイプ名とエラーメッセージを `/` 区切りで結合して格納する。
-
-## 現時点で不足している認証情報(将来フェーズ用)
-
-フェーズ1・2は `.env`/`functions/.env.hakatadiary` の既存キー(`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GEMINI_API_KEY`, `FOURSQUARE_OAUTH_CLIENT_ID`, `FOURSQUARE_OAUTH_CLIENT_SECRET`)のみで完結している(Google Calendar/Photos/MapsはGOOGLE_CLIENT_ID/SECRETを再利用)。`GOOGLE_PLACES_API_KEY` はコードは実装済みだがまだ値が用意されておらず、Secret Managerへの登録が未完了(下記「手動セットアップチェックリスト」参照)。以下は将来フェーズで必要になる:
-
-- **フェーズ3**: ZaimのOAuth consumer key/secret(Moneyforwardは手動CSVエクスポートのみのためAPI認証情報は不要)
-- **フェーズ4**: Web Push用VAPIDキーペア
-- **フェーズ5**: Home Assistantの長期アクセストークン+ベースURL、X(Twitter) APIのベアラートークン、Mastodonインスタンスのアクセストークン+インスタンスURL
+- 新しいデータソースの秘密情報は原則 `dataSourceSecrets/{dataSourceId}` に保存し、Secret Managerには追加しない(非秘匿情報は`defineString`。[ADR-0002](docs/adr/0002-secret-manager-vs-firestore-secrets.md))。
+- `logEntries` を一覧表示するクエリは必ず `src/lib/logEntries.ts` の `visibleLogEntries`/`isVisible` で `hidden` フィルタを通すこと(Firestoreクエリの`!=`は使わない。[ADR-0003](docs/adr/0003-firestore-normalized-log-entries-schema.md))。
+- 新しいCloud Functionsは `asia-northeast1` リージョンを明示指定する([ADR-0004](docs/adr/0004-callable-functions-centric-design.md))。
+- 認証が必要なバックエンド処理はデフォルトで `onCall`(Callable Functions)にする。生ナビゲーションが必要なOAuthコールバック等のみ `onRequest` にする([ADR-0004](docs/adr/0004-callable-functions-centric-design.md))。
+- 新しいFirestoreクエリ結果を表示する画面は `src/lib/Collection.tsx`/`Doc.tsx` を再利用する([ADR-0005](docs/adr/0005-collection-doc-reuse-pattern.md))。
+- 新しいGoogle系データソースのOAuthは `functions/src/lib/googleOAuth.ts` の `createGoogleOAuthFlow` ファクトリの利用を検討する([ADR-0006](docs/adr/0006-google-oauth-flow-factory.md))。
+- ユーザーがブラウザから直接入力する認証情報(APIキー等)は、専用のCallable Functionを用意してAdmin SDK経由で書き込む(クライアントから直接Firestoreに書き込ませない)。
 
 ## 開発コマンド
 
@@ -184,38 +78,8 @@ npx firebase deploy       # 本番デプロイ(hosting + firestore rules/indexes
 
 `functions/` 配下は独立したnpmパッケージ(`npm install` はルートの `postinstall` 的な `install` スクリプトで自動的に `functions/` でも実行される)。
 
-## 手動セットアップチェックリスト(コード化不可、ユーザー側作業)
+## その他のドキュメント
 
-1. Firebase Console → Authentication → Sign-in method → Google 有効化(**完了済み**)。
-2. Google Cloud Console → APIs & Services → Library で Google Health API を有効化。
-3. Google Cloud Console → OAuth consent screen → スコープに `googlehealth.activity_and_fitness.readonly`(運動記録)と `googlehealth.location.readonly`(GPSトラック取得用、フェーズ2追加分)を追加、公開ステータスを「本番」に変更。
-4. Google Cloud Console → Credentials → 既存OAuthクライアント(`GOOGLE_CLIENT_ID`)に `https://asia-northeast1-hakatadiary.cloudfunctions.net/googleHealthOAuthCallback` を承認済みリダイレクトURIとして追加。
-5. デプロイ後、`/data-sources` から「接続」ボタンでGoogle Healthとの実際の接続確認を行う。
-
-### フェーズ2追加分
-
-6. Google Cloud Console → APIs & Services → Library で **Google Calendar API** を有効化し、OAuth consent screenのスコープに `calendar.readonly` を追加。
-7. Google Cloud Console → Credentials → 既存OAuthクライアントに `https://asia-northeast1-hakatadiary.cloudfunctions.net/googleCalendarOAuthCallback` をリダイレクトURIとして追加。
-8. Google Cloud Console → APIs & Services → Library で **Places API (New)** を有効化し、APIキーを発行(Places API (New) の Place Details にのみ制限することを推奨)。発行したキーを `firebase functions:secrets:set GOOGLE_PLACES_API_KEY` でSecret Managerに登録する。未設定の間はGoogle Maps Timelineインポート時に場所名の代わりに緯度経度が表示される(フォールバック動作、インポート自体は失敗しない)。
-9. [Foursquare Developer Portal](https://foursquare.com/developers/apps) で作成済みのアプリの設定画面から、`https://asia-northeast1-hakatadiary.cloudfunctions.net/swarmOAuthCallback` をリダイレクトURIとして登録する。
-10. `firebase functions:secrets:set FOURSQUARE_OAUTH_CLIENT_SECRET` でSecret Managerに登録する(値は `.env` の `FOURSQUARE_OAUTH_CLIENT_SECRET` と同じ)。
-11. Immichサーバーの管理画面(Account Settings → API Keys)でAPIキーを発行する。Secret Managerには登録せず、`/data-sources` の画面からサーバーURL(例: `https://immich.example.com/api`)とAPIキーを直接入力して接続する(`connectImmich` Callable経由で `dataSourceSecrets/immich` に保存される)。**APIキー発行時に選択する権限(Permissions)には `Asset > View`(`asset.view`)を含める必要がある。** `connectImmich` が呼ぶ `GET /users/me` はこの権限がなくても成功するため接続自体は完了してしまうが、サムネイル取得(`getImmichThumbnail`、`GET /assets/{id}/thumbnail`)は権限不足だと `403 Missing required permission: asset.view` で失敗する(実接続で確認済み)。日誌ページの写真表示を使う場合は、この権限を含めてAPIキーを再発行し、`/data-sources` から接続し直すこと。
-12. デプロイ後、`/data-sources` から各データソースの「接続」ボタンで実際の接続確認を行う。特にSwarm(Foursquare API)は実フィールドが未検証のため、初回接続時にGoogle Health連携同様のトライアル&エラー修正が必要になる可能性が高い。
-13. Firebase Console(または`firebase deploy`実行時の初回プロンプト)でCloud Storage for Firebaseを有効化する(未有効の場合、デフォルトバケットの作成先リージョンを選択するダイアログが表示されることがある)。GPSトラックの保存先として使用する(`storage.rules`/`firebase.json`の`storage`設定は実装済み)。
-14. 既にGoogle Healthを接続済みの場合、`googlehealth.location.readonly` スコープ追加(上記3.)後に `/data-sources` から**Google Healthを再接続(再度「接続」ボタンからOAuth同意をやり直す)**する。既存のrefresh tokenにはこのスコープが含まれていないため、再接続しないとGPSトラック取得(`exportExerciseTcx`)が403で失敗し続ける(通常のエクササイズ同期自体には影響しない)。
-15. Cloud Storageバケットに `storage.cors.json` のCORS設定を適用する: `gcloud storage buckets update gs://hakatadiary.firebasestorage.app --cors-file=storage.cors.json`(`firebase deploy`ではバケットのCORS設定は反映されないため、Hostingドメインを変更した場合等はこのコマンドを再実行すること)。未適用のままだと日誌ページの地図でGPSトラックがCORSエラーで読み込めない(実接続で確認済み)。
-
-### 食事・睡眠・体重記録追加分
-
-16. Google Cloud Console → OAuth consent screen → スコープに `googlehealth.nutrition.readonly`(食事)・`googlehealth.sleep.readonly`(睡眠)・`googlehealth.health_metrics_and_measurements.readonly`(体重)を追加する。
-17. 既にGoogle Healthを接続済みの場合、上記16.のスコープ追加後に `/data-sources` から**Google Healthを再接続(再度「接続」ボタンからOAuth同意をやり直す)**する。既存のrefresh tokenにはこれらのスコープが含まれていないため、再接続しないと食事・睡眠・体重の同期が403で失敗し続ける(既存の運動記録同期自体には影響しない。`syncGoogleHealth` はデータタイプごとに独立してエラー処理するため、この間は `lastSyncStatus: 'partial'` となり `lastSyncError` にどのデータタイプが失敗したかが表示される)。
-18. デプロイ・再接続後、`/data-sources` から「今すぐ同期」を実行し、食事・睡眠・体重の記録が日誌ページに表示されることを確認する。フィルタ構文・レスポンススキーマは本番のrefresh tokenを使った実接続で検証済み(上記「10. Google Health連携の拡張」参照)。
-
-## 既知の制約・今後の検討事項
-
-- Google Maps Timelineの `timelinePath`(生GPSトラック)・`timelineMemory`(思い出メモ)、およびGoogle Healthのエクササイズ(ウォーキング/サイクリング等)のGPSトラック(詳細は上記「Google Health API連携」参照)は取込済み(いずれもFirebase Storageに外部化。Google Maps Timelineの詳細は上記「7. Google Maps Timelineの手動インポート設計」参照)。Google Maps Timelineのトップレベルの `rawSignals`(生GPS/Wi-Fi信号)・`userLocationProfile`(頻出地点プロファイル)は日誌としての価値が低い/データモデルに馴染まないと判断し、意図的に未取込のまま。取り込んだGPSトラックを地図上に描画するUIは「9. 日誌ページの地図・写真表示」で実装済み。
-- 日誌ページの地図(Leaflet)は訪問地点のピンとGPS経路の線表示のみで、経路の移動手段(徒歩/電車/自動車等)による線種の描き分けや、地図上での複数日横断表示は未実装(将来検討)。
-- Immichの自己ホストサーバーがネットワーク的にCloud Functionsから到達可能であることが前提(リバースプロキシ・DDNS等はユーザー側の運用に依存し、コード化不可)。サーバーが到達不能な間は同期が `error` ステータスになるのみで、リトライは次回のスケジュール実行を待つ簡易的な設計。
-- Swarm(Foursquare v2 API `/v2/users/self/checkins`)のレスポンス実フィールドはドキュメントからの推定で実装しており未検証。初回実接続時にGoogle Health連携同様のトライアル&エラー修正が必要になる可能性が高い。また同エンドポイントを含むv2レガシーAPIは2026年5月15日に廃止予定とFoursquareが告知しており、将来的な再移行が必要になる見込み。
-- 複数データソース間の意味的重複統合は、Google Maps訪問記録⇔Swarmチェックインの組み合わせのみ実装済み(`functions/src/dataSources/dedup/dedupeVisitsAndCheckins.ts`)。しきい値(20分/200m)は保守的な初期値であり、実データでの調整が必要になる可能性がある。Google Calendarの予定⇔Immichの写真など、他の組み合わせの統合は未実装。
-- AIパートナーの複数ペルソナ・長期記憶のFirestoreスキーマはフェーズ4で設計する(現時点では未着手)。
+- `docs/manual-setup-checklist.md` — コード化不可、ユーザー自身の作業が必要な手動セットアップ手順(データソース接続時に参照)
+- `docs/known-issues.md` — 既知の制約・未実装事項・将来フェーズで必要になる認証情報
+- `docs/adr/` — 個々のアーキテクチャ決定の詳細(背景・トレードオフ・実接続で判明した仕様)
