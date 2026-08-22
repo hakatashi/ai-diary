@@ -85,3 +85,4 @@ npx firebase deploy       # 本番デプロイ(hosting + firestore rules/indexes
 - `docs/manual-setup-checklist.md` — コード化不可、ユーザー自身の作業が必要な手動セットアップ手順(データソース接続時に参照)
 - `docs/known-issues.md` — 既知の制約・未実装事項・将来フェーズで必要になる認証情報
 - `docs/adr/` — 個々のアーキテクチャ決定の詳細(背景・トレードオフ・実接続で判明した仕様)
+- `docs/browser-debugging.md` — claude-in-chromeでのローカル動作確認手順・注意点(エミュレータ起動、ログイン、Callableのデバッグ方法等)
