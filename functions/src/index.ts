@@ -1,3 +1,4 @@
+export {disconnectDataSource} from './dataSources/disconnect';
 export {
 	beginGoogleCalendarOAuth,
 	googleCalendarOAuthCallback,

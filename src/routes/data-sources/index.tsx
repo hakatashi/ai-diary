@@ -46,6 +46,75 @@ const dedupeLogEntriesNow = httpsCallable<
 	{dateFrom: string; dateTo: string},
 	{status: string; datesProcessed: number}
 >(functions, 'dedupeLogEntriesNow');
+const disconnectDataSource = httpsCallable<
+	{dataSourceId: string},
+	{status: 'ok'}
+>(functions, 'disconnectDataSource');
+
+// ── 認証解除(再認証を可能にするため、保存済みの認証情報を削除する) ────────
+
+const DisconnectButton = (props: {
+	dataSourceId: string;
+	onDisconnected: () => void;
+}) => {
+	const [confirming, setConfirming] = createSignal(false);
+	const [busy, setBusy] = createSignal(false);
+	const [error, setError] = createSignal<string | null>(null);
+
+	const handleDisconnect = async () => {
+		setBusy(true);
+		setError(null);
+		try {
+			await disconnectDataSource({dataSourceId: props.dataSourceId});
+			setConfirming(false);
+			props.onDisconnected();
+		} catch {
+			setError('認証解除に失敗しました。');
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	return (
+		<Show
+			when={confirming()}
+			fallback={
+				<button
+					type="button"
+					onClick={() => setConfirming(true)}
+					class="btn btn-secondary"
+				>
+					認証解除
+				</button>
+			}
+		>
+			<div class="flex flex-col items-end gap-1">
+				<p class="text-[13px] text-accent">
+					認証情報を削除します。再度接続するには認証をやり直す必要があります。よろしいですか?
+				</p>
+				{error() && <p class="text-[13px] text-accent">{error()}</p>}
+				<div class="flex gap-2">
+					<button
+						type="button"
+						onClick={handleDisconnect}
+						disabled={busy()}
+						class="btn btn-primary"
+					>
+						{busy() ? '解除中...' : '解除する'}
+					</button>
+					<button
+						type="button"
+						onClick={() => setConfirming(false)}
+						disabled={busy()}
+						class="btn btn-secondary"
+					>
+						キャンセル
+					</button>
+				</div>
+			</div>
+		</Show>
+	);
+};
 
 // ── OAuth接続型データソース(Google Health / Google Calendar / Swarm) ──────
 
@@ -128,14 +197,20 @@ const OAuthDataSourceCard = (props: {
 				<Doc data={dataSourceState} fallback={connectButton}>
 					{(data) =>
 						data.status === 'connected' ? (
-							<button
-								type="button"
-								onClick={handleSync}
-								disabled={busy()}
-								class="btn btn-secondary"
-							>
-								{busy() ? '同期中...' : '今すぐ同期'}
-							</button>
+							<div class="flex flex-col items-end gap-2">
+								<button
+									type="button"
+									onClick={handleSync}
+									disabled={busy()}
+									class="btn btn-secondary"
+								>
+									{busy() ? '同期中...' : '今すぐ同期'}
+								</button>
+								<DisconnectButton
+									dataSourceId={props.id}
+									onDisconnected={() => {}}
+								/>
+							</div>
 						) : (
 							connectButton
 						)
@@ -449,23 +524,29 @@ const ImmichCard = () => {
 			<Doc data={dataSourceState} fallback={connectForm}>
 				{(data) =>
 					data.status === 'connected' ? (
-						<div class="flex gap-2">
-							<button
-								type="button"
-								onClick={() => handleSync(false)}
-								disabled={busy()}
-								class="btn btn-secondary"
-							>
-								{busy() ? '同期中...' : '今すぐ同期'}
-							</button>
-							<button
-								type="button"
-								onClick={() => handleSync(true)}
-								disabled={busy()}
-								class="btn btn-secondary"
-							>
-								{busy() ? '同期中...' : '全期間を同期'}
-							</button>
+						<div class="flex flex-col items-end gap-2">
+							<div class="flex gap-2">
+								<button
+									type="button"
+									onClick={() => handleSync(false)}
+									disabled={busy()}
+									class="btn btn-secondary"
+								>
+									{busy() ? '同期中...' : '今すぐ同期'}
+								</button>
+								<button
+									type="button"
+									onClick={() => handleSync(true)}
+									disabled={busy()}
+									class="btn btn-secondary"
+								>
+									{busy() ? '同期中...' : '全期間を同期'}
+								</button>
+							</div>
+							<DisconnectButton
+								dataSourceId="immich"
+								onDisconnected={() => setConnectedEmail(null)}
+							/>
 						</div>
 					) : (
 						connectForm
