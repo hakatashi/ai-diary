@@ -16,7 +16,8 @@ export type DataSourceType =
 	| 'google_calendar'
 	| 'google_maps_timeline'
 	| 'swarm'
-	| 'immich';
+	| 'immich'
+	| 'playnite';
 
 export type DataSourceStatus =
 	| 'connected'
@@ -51,7 +52,8 @@ export type LogEntrySourceType =
 	| 'google_maps_path'
 	| 'google_maps_memory'
 	| 'swarm_checkin'
-	| 'immich_photo';
+	| 'immich_photo'
+	| 'playnite_session';
 
 export type LogEntryCategory =
 	| 'exercise'
@@ -61,7 +63,8 @@ export type LogEntryCategory =
 	| 'location'
 	| 'checkin'
 	| 'calendar'
-	| 'photo';
+	| 'photo'
+	| 'game';
 
 export interface LogEntryMetrics {
 	durationMinutes?: number;

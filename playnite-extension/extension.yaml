@@ -1,0 +1,6 @@
+Id: ai-diary-playnite-tracker
+Name: ai-diary Game Session Tracker
+Author: hakatashi
+Version: 1.0.0
+Module: AiDiaryPlaynite.psm1
+Type: Script

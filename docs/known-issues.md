@@ -8,6 +8,7 @@
 - Swarm(Foursquare v2 API `/v2/users/self/checkins`)のレスポンス実フィールドはドキュメントからの推定で実装しており未検証。初回実接続時にGoogle Health連携同様のトライアル&エラー修正が必要になる可能性が高い。また同エンドポイントを含むv2レガシーAPIは2026年5月15日に廃止予定とFoursquareが告知しており、将来的な再移行が必要になる見込み。
 - 複数データソース間の意味的重複統合は、Google Maps訪問記録⇔Swarmチェックインの組み合わせのみ実装済み([ADR-0003](adr/0003-firestore-normalized-log-entries-schema.md))。しきい値(20分/200m)は保守的な初期値であり、実データでの調整が必要になる可能性がある。Google Calendarの予定⇔Immichの写真など、他の組み合わせの統合は未実装。
 - AIパートナーの複数ペルソナ・長期記憶のFirestoreスキーマはフェーズ4で設計する(現時点では未着手)。
+- Playniteのゲームセッション記録(`playnite-extension/`)はpush型かつ`OnGameStopped`確定時の単発送信のため、Playnite/PCのクラッシュ時やPOST時にオフラインだった場合はそのセッションが記録漏れになる(再送キュー未実装)。Playniteを経由せず直接起動したゲームも対象外。詳細: [ADR-0012](adr/0012-playnite-game-session-ingest.md)。
 
 ## 将来フェーズで必要になる認証情報
 

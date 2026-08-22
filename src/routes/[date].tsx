@@ -9,6 +9,7 @@ import {
 	CheckinIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
+	GameIcon,
 	LocationIcon,
 	MapIcon,
 	NutritionIcon,
@@ -43,6 +44,7 @@ const CATEGORY_ICON: Record<
 	checkin: CheckinIcon,
 	calendar: CalendarIcon,
 	photo: PhotoIcon,
+	game: GameIcon,
 };
 
 const DateNav = (props: {date: string}) => (

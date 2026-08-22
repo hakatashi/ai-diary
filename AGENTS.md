@@ -54,6 +54,7 @@ Firebaseプロジェクト: `hakatadiary`(`.firebaserc` に設定済み)。
 - [0009](docs/adr/0009-journal-map-and-photos.md) — 日誌ページの地図(Leaflet)・写真表示
 - [0010](docs/adr/0010-google-health-nutrition-sleep-weight.md) — Google Health連携の拡張(食事・睡眠・体重)
 - [0011](docs/adr/0011-google-health-api-integration-details.md) — Google Health API連携の実装詳細(運動記録・GPSトラック)
+- [0012](docs/adr/0012-playnite-game-session-ingest.md) — PlayniteからのPCゲームプレイ記録はpush型・専用ingestトークン認証で取り込む
 
 ## 開発中、常に守るべきルール
 
