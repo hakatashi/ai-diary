@@ -10,8 +10,15 @@ vi.mock('../../lib/gpsTrackStorage', () => ({
 	saveGpsTrack: saveGpsTrackMock,
 }));
 
-const {attachGpsTrack, getDataPointName, mayHaveGpsTrack, normalizeExercise} =
-	await import('./normalize.ts');
+const {
+	attachGpsTrack,
+	getDataPointName,
+	mayHaveGpsTrack,
+	normalizeExercise,
+	normalizeNutritionLog,
+	normalizeSleep,
+	normalizeWeight,
+} = await import('./normalize.ts');
 
 const baseRaw = {
 	name: 'users/me/dataTypes/exercise/dataPoints/123',
@@ -82,4 +89,80 @@ test('attachGpsTrack uploads points via saveGpsTrack and merges location/raw.gps
 	});
 	// 元のexerciseの生データは失わずraw内に保持される。
 	expect(result.entry.raw.exercise).toEqual(baseRaw.exercise);
+});
+
+test('normalizeNutritionLog builds a logEntry from a nutrition-log data point', () => {
+	const raw = {
+		name: 'users/me/dataTypes/nutrition-log/dataPoints/789',
+		nutritionLog: {
+			interval: {
+				startTime: '2026-08-22T10:00:00.000Z',
+				endTime: '2026-08-22T10:01:00.000Z',
+			},
+			mealType: 'DINNER',
+			foodDisplayName: '夕食(塩麹揚げ・十六穀米)',
+			energy: {kcal: 1114},
+		},
+	};
+	const {id, entry} = normalizeNutritionLog(raw);
+	expect(id).toMatch(/^[0-9a-f]{64}$/);
+	expect(entry.sourceType).toBe('google_health_nutrition');
+	expect(entry.category).toBe('nutrition');
+	expect(entry.title).toBe('夕食');
+	expect(entry.summary).toBe('夕食(塩麹揚げ・十六穀米)');
+	expect(entry.metrics?.calories).toBe(1114);
+});
+
+test('normalizeNutritionLog falls back to a generic title for an unknown meal type', () => {
+	const raw = {
+		name: 'users/me/dataTypes/nutrition-log/dataPoints/790',
+		nutritionLog: {
+			interval: {startTime: '2026-08-22T10:00:00.000Z'},
+		},
+	};
+	const {entry} = normalizeNutritionLog(raw);
+	expect(entry.title).toBe('食事');
+	expect(entry.metrics).toBeNull();
+});
+
+test('normalizeSleep builds a logEntry from a sleep data point with stage summary', () => {
+	const raw = {
+		name: 'users/me/dataTypes/sleep/dataPoints/456',
+		sleep: {
+			interval: {
+				startTime: '2026-08-21T21:09:00.000Z',
+				endTime: '2026-08-22T02:00:00.000Z',
+			},
+			summary: {
+				minutesAsleep: '284',
+				stagesSummary: [
+					{type: 'LIGHT', minutes: '158'},
+					{type: 'DEEP', minutes: '44'},
+				],
+			},
+		},
+	};
+	const {id, entry} = normalizeSleep(raw);
+	expect(id).toMatch(/^[0-9a-f]{64}$/);
+	expect(entry.sourceType).toBe('google_health_sleep');
+	expect(entry.category).toBe('sleep');
+	expect(entry.title).toBe('睡眠');
+	expect(entry.summary).toBe('浅い睡眠 158分 / 深い睡眠 44分');
+	expect(entry.metrics?.durationMinutes).toBe(284);
+});
+
+test('normalizeWeight builds a logEntry from a weight data point', () => {
+	const raw = {
+		name: 'users/me/dataTypes/weight/dataPoints/321',
+		weight: {
+			sampleTime: {physicalTime: '2026-08-22T22:00:00.000Z'},
+			weightGrams: 65200,
+		},
+	};
+	const {id, entry} = normalizeWeight(raw);
+	expect(id).toMatch(/^[0-9a-f]{64}$/);
+	expect(entry.sourceType).toBe('google_health_weight');
+	expect(entry.category).toBe('weight');
+	expect(entry.title).toBe('体重');
+	expect(entry.metrics?.weightKilograms).toBeCloseTo(65.2);
 });

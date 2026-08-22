@@ -2,7 +2,12 @@ import {createHash} from 'node:crypto';
 import {GeoPoint, Timestamp} from 'firebase-admin/firestore';
 import type {LogEntry} from '../../../../src/lib/schema.ts';
 import {type GpsTrackPoint, saveGpsTrack} from '../../lib/gpsTrackStorage';
-import type {RawExerciseDataPoint} from './client';
+import type {
+	RawExerciseDataPoint,
+	RawNutritionDataPoint,
+	RawSleepDataPoint,
+	RawWeightDataPoint,
+} from './client';
 
 const TIME_ZONE = 'Asia/Tokyo';
 const dateFormatter = new Intl.DateTimeFormat('en-CA', {
@@ -165,6 +170,222 @@ export const normalizeExercise = (
 						...(avgHeartRate !== undefined && {avgHeartRate}),
 					}
 				: null,
+			location: null,
+			raw,
+			sourceRecordId,
+		},
+	};
+};
+
+// nutrition-log, sleep, weightのSessionTimeInterval/int64フィールドはJSON上では
+// 文字列として表現される(protobuf int64のJSONマッピング)ため、数値化にはNumber()を使う。
+const parseInt64 = (value: string | undefined): number | undefined =>
+	value === undefined ? undefined : Number(value);
+
+interface SessionTimeInterval {
+	startTime: string;
+	endTime?: string;
+}
+
+const MEAL_TYPE_LABELS: Record<string, string> = {
+	BREAKFAST: '朝食',
+	BRUNCH: 'ブランチ',
+	LUNCH: '昼食',
+	SNACK: '間食',
+	DINNER: '夕食',
+	DESSERT: 'デザート',
+	ALCOHOL: '飲酒',
+	JUICE: 'ジュース',
+	TEA: 'お茶',
+	WATER: '水分補給',
+};
+
+const formatMealType = (mealType: string | undefined): string =>
+	(mealType && MEAL_TYPE_LABELS[mealType]) || '食事';
+
+interface EnergyQuantity {
+	kcal?: number;
+}
+
+interface NutritionLogData {
+	interval: SessionTimeInterval;
+	mealType?: string;
+	foodDisplayName?: string;
+	energy?: EnergyQuantity;
+}
+
+interface NutritionDataPoint {
+	name?: string;
+	nutritionLog: NutritionLogData;
+}
+
+export interface NormalizedNutritionLog {
+	id: string;
+	entry: Omit<LogEntry, 'createdAt' | 'updatedAt' | 'dataSourceId'>;
+}
+
+// 参照: https://developers.google.com/health/reference/rest/v4/users.dataTypes.dataPoints
+// energyは実接続で確認した限り{kcal: number}という形で返る(公式リファレンスが示す
+// EnergyQuantity{value, unit}形式ではない)。
+export const normalizeNutritionLog = (
+	raw: RawNutritionDataPoint,
+): NormalizedNutritionLog => {
+	const point = raw as unknown as NutritionDataPoint;
+	const {interval, mealType, foodDisplayName, energy} = point.nutritionLog;
+
+	const startDate = new Date(interval.startTime);
+	const endDate = interval.endTime ? new Date(interval.endTime) : null;
+
+	const sourceRecordId = point.name ?? `nutrition_${interval.startTime}`;
+	const calories = energy?.kcal;
+
+	const id = createHash('sha256')
+		.update(`google_health_nutrition:${sourceRecordId}`)
+		.digest('hex');
+
+	return {
+		id,
+		entry: {
+			sourceType: 'google_health_nutrition',
+			category: 'nutrition',
+			date: dateFormatter.format(startDate),
+			startAt: Timestamp.fromDate(startDate),
+			endAt: endDate ? Timestamp.fromDate(endDate) : null,
+			title: formatMealType(mealType),
+			summary: foodDisplayName ?? null,
+			metrics: calories !== undefined ? {calories} : null,
+			location: null,
+			raw,
+			sourceRecordId,
+		},
+	};
+};
+
+const SLEEP_STAGE_LABELS: Record<string, string> = {
+	LIGHT: '浅い睡眠',
+	DEEP: '深い睡眠',
+	REM: 'レム睡眠',
+	AWAKE: '覚醒',
+	RESTLESS: '浅い眠り',
+	ASLEEP: '睡眠',
+};
+
+interface SleepStageSummary {
+	type?: string;
+	minutes?: string;
+}
+
+interface SleepSummary {
+	stagesSummary?: SleepStageSummary[];
+	minutesAsleep?: string;
+}
+
+interface SleepData {
+	interval: SessionTimeInterval;
+	summary?: SleepSummary;
+}
+
+interface SleepDataPoint {
+	name?: string;
+	sleep: SleepData;
+}
+
+export interface NormalizedSleep {
+	id: string;
+	entry: Omit<LogEntry, 'createdAt' | 'updatedAt' | 'dataSourceId'>;
+}
+
+const formatSleepSummary = (
+	summary: SleepSummary | undefined,
+): string | null => {
+	const stages = summary?.stagesSummary;
+	if (!stages || stages.length === 0) {
+		return null;
+	}
+	return stages
+		.map((stage) => {
+			const minutes = parseInt64(stage.minutes);
+			const label =
+				(stage.type && SLEEP_STAGE_LABELS[stage.type]) || stage.type;
+			return minutes !== undefined ? `${label} ${minutes}分` : null;
+		})
+		.filter((text): text is string => text !== null)
+		.join(' / ');
+};
+
+// 参照: https://developers.google.com/health/reference/rest/v4/users.dataTypes.dataPoints
+export const normalizeSleep = (raw: RawSleepDataPoint): NormalizedSleep => {
+	const point = raw as unknown as SleepDataPoint;
+	const {interval, summary} = point.sleep;
+
+	const startDate = new Date(interval.startTime);
+	const endDate = interval.endTime ? new Date(interval.endTime) : null;
+
+	const sourceRecordId = point.name ?? `sleep_${interval.startTime}`;
+	const minutesAsleep = parseInt64(summary?.minutesAsleep);
+
+	const id = createHash('sha256')
+		.update(`google_health_sleep:${sourceRecordId}`)
+		.digest('hex');
+
+	return {
+		id,
+		entry: {
+			sourceType: 'google_health_sleep',
+			category: 'sleep',
+			date: dateFormatter.format(startDate),
+			startAt: Timestamp.fromDate(startDate),
+			endAt: endDate ? Timestamp.fromDate(endDate) : null,
+			title: '睡眠',
+			summary: formatSleepSummary(summary),
+			metrics:
+				minutesAsleep !== undefined ? {durationMinutes: minutesAsleep} : null,
+			location: null,
+			raw,
+			sourceRecordId,
+		},
+	};
+};
+
+interface WeightData {
+	sampleTime: {physicalTime: string};
+	notes?: string;
+	weightGrams: number;
+}
+
+interface WeightDataPoint {
+	name?: string;
+	weight: WeightData;
+}
+
+export interface NormalizedWeight {
+	id: string;
+	entry: Omit<LogEntry, 'createdAt' | 'updatedAt' | 'dataSourceId'>;
+}
+
+// 参照: https://developers.google.com/health/reference/rest/v4/users.dataTypes.dataPoints
+export const normalizeWeight = (raw: RawWeightDataPoint): NormalizedWeight => {
+	const point = raw as unknown as WeightDataPoint;
+	const {sampleTime, notes, weightGrams} = point.weight;
+
+	const sampleDate = new Date(sampleTime.physicalTime);
+	const sourceRecordId = point.name ?? `weight_${sampleTime.physicalTime}`;
+
+	const id = createHash('sha256')
+		.update(`google_health_weight:${sourceRecordId}`)
+		.digest('hex');
+
+	return {
+		id,
+		entry: {
+			sourceType: 'google_health_weight',
+			category: 'weight',
+			date: dateFormatter.format(sampleDate),
+			startAt: Timestamp.fromDate(sampleDate),
+			endAt: null,
+			title: '体重',
+			summary: notes ?? null,
+			metrics: {weightKilograms: weightGrams / 1000},
 			location: null,
 			raw,
 			sourceRecordId,

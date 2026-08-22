@@ -8,7 +8,10 @@ import {
 	CalendarIcon,
 	CheckinIcon,
 	LocationIcon,
+	NutritionIcon,
 	PhotoIcon,
+	SleepIcon,
+	WeightIcon,
 } from '~/components/icons';
 import {formatDateTime} from '~/lib/date';
 import {LogEntries} from '~/lib/firebase';
@@ -22,6 +25,9 @@ const CATEGORY_ICON: Record<
 	(props: {size?: number}) => JSX.Element
 > = {
 	exercise: ActivityIcon,
+	nutrition: NutritionIcon,
+	sleep: SleepIcon,
+	weight: WeightIcon,
 	location: LocationIcon,
 	checkin: CheckinIcon,
 	calendar: CalendarIcon,
@@ -30,6 +36,9 @@ const CATEGORY_ICON: Record<
 
 const CATEGORY_LABEL: Record<LogEntryCategory, string> = {
 	exercise: '運動',
+	nutrition: '食事',
+	sleep: '睡眠',
+	weight: '体重',
 	location: '位置情報',
 	checkin: 'チェックイン',
 	calendar: '予定',
