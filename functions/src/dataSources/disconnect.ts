@@ -14,6 +14,7 @@ const DISCONNECTABLE_DATA_SOURCE_IDS = new Set([
 	'swarm',
 	'immich',
 	'playnite',
+	'zaim',
 ]);
 
 interface DisconnectDataSourceRequest {

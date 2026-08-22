@@ -15,7 +15,12 @@ import {
 } from 'firebase/firestore';
 import {connectFunctionsEmulator, getFunctions} from 'firebase/functions';
 import {connectStorageEmulator, getStorage} from 'firebase/storage';
-import type {DataSource, JournalEntry, LogEntry} from './schema.ts';
+import type {
+	DataSource,
+	FinanceRule,
+	JournalEntry,
+	LogEntry,
+} from './schema.ts';
 
 const FUNCTIONS_REGION = 'asia-northeast1';
 
@@ -51,6 +56,10 @@ const JournalEntries = collection(
 	db,
 	'journalEntries',
 ) as CollectionReference<JournalEntry>;
+const FinanceRules = collection(
+	db,
+	'financeRules',
+) as CollectionReference<FinanceRule>;
 
 const signInWithGoogle = () => signInWithPopup(auth, new GoogleAuthProvider());
 
@@ -65,6 +74,7 @@ export {
 	DataSources,
 	LogEntries,
 	JournalEntries,
+	FinanceRules,
 	signInWithGoogle,
 	signOutFromApp as signOut,
 };

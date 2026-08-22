@@ -34,3 +34,11 @@
 19. デプロイ後、`/data-sources` の Playnite カードから「接続」を押してingestトークンを発行する(この画面でのみ表示される)。
 20. ゲームをプレイするPC上で `playnite-extension/README.md` の手順に従い、`%APPDATA%\AiDiaryPlaynite\config.json` の作成とPlaynite拡張のインストールを行う。
 21. 適当なゲームを起動・終了し、`/data-sources` の「最終受信」が更新されることと、日誌ページにセッションが表示されることを確認する。
+
+## Zaim / Moneyforward(家計簿統合)追加分
+
+22. [Zaim Developers Center](https://dev.zaim.net/home) で発行済みのアプリの設定画面から、コールバックURLに `https://asia-northeast1-hakatadiary.cloudfunctions.net/zaimOAuthCallback` を登録する。
+23. `firebase functions:secrets:set ZAIM_CONSUMER_SECRET` でSecret Managerに登録する(値は `.env` の `ZAIM_CONSUMER_SECRET` と同じ)。`ZAIM_CONSUMER_KEY` は非秘匿情報として `functions/.env.hakatadiary` に設定済み。
+24. デプロイ後、`/data-sources` のZaimカードから「接続」を押して実際の接続確認を行う。request token取得は実接続で検証済みだが、authorize画面での同意〜access token交換は未検証のため、Swarm連携時と同様に初回接続時にトライアル&エラー修正が必要になる可能性が残る(詳細: [ADR-0013](adr/0013-zaim-moneyforward-finance-integration.md))。
+25. Moneyforwardの家計簿画面(Web版)からエクスポートした「収入・支出詳細」CSVを `/data-sources` のMoneyforwardカードからアップロードし、取り込みを確認する。定期自動同期はないため、必要な都度手動でエクスポート・アップロードする。
+26. `/finance` ページで支出の内訳・推移が表示されることを確認する。手動振り分けルールを追加・変更した場合は `/data-sources` の「ルールを再適用」で過去データへ反映する。

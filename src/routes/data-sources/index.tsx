@@ -6,6 +6,10 @@ import AppShell from '~/components/AppShell';
 import Doc from '~/lib/Doc';
 import {formatDateTime, getTodayDateString, shiftDateString} from '~/lib/date';
 import {DataSources, functions} from '~/lib/firebase';
+import {
+	type MoneyforwardCsvRow,
+	parseMoneyforwardCsv,
+} from '~/lib/moneyforwardCsv';
 import type {DataSourceStatus} from '~/lib/schema.ts';
 
 const STATUS_LABEL: Record<DataSourceStatus, string> = {
@@ -46,10 +50,23 @@ const importGoogleMapsTimelineChunk = httpsCallable<
 	{segments: Record<string, unknown>[]},
 	{imported: number; skipped: number}
 >(functions, 'importGoogleMapsTimelineChunk', {timeout: 300_000});
+const beginZaimOAuth = httpsCallable<undefined, {authUrl: string}>(
+	functions,
+	'beginZaimOAuth',
+);
+const syncZaimNow = httpsCallable(functions, 'syncZaimNow');
+const importMoneyforwardRows = httpsCallable<
+	{rows: MoneyforwardCsvRow[]},
+	{imported: number}
+>(functions, 'importMoneyforwardRows', {timeout: 300_000});
 const dedupeLogEntriesNow = httpsCallable<
 	{dateFrom: string; dateTo: string},
 	{status: string; datesProcessed: number}
 >(functions, 'dedupeLogEntriesNow');
+const applyFinanceRulesNow = httpsCallable<
+	{dateFrom: string; dateTo: string},
+	{status: string; updated: number}
+>(functions, 'applyFinanceRulesNow');
 const disconnectDataSource = httpsCallable<
 	{dataSourceId: string},
 	{status: 'ok'}
@@ -667,6 +684,155 @@ const PlayniteCard = () => {
 	);
 };
 
+// ── Moneyforward(手動CSVアップロード、Shift_JIS) ─────────────────────────
+
+const MONEYFORWARD_CHUNK_SIZE = 400;
+
+const MoneyforwardCard = () => {
+	const dataSourceState = useFirestore(doc(DataSources, 'moneyforward'));
+	const [pendingRows, setPendingRows] = createSignal<
+		MoneyforwardCsvRow[] | null
+	>(null);
+	const [progress, setProgress] = createSignal<{
+		done: number;
+		total: number;
+	} | null>(null);
+	const [busy, setBusy] = createSignal(false);
+	const [error, setError] = createSignal<string | null>(null);
+
+	const handleFileChange = async (event: Event) => {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		input.value = '';
+		if (!file) {
+			return;
+		}
+		setError(null);
+		try {
+			const buffer = await file.arrayBuffer();
+			const text = new TextDecoder('shift_jis').decode(buffer);
+			const rows = parseMoneyforwardCsv(text);
+			if (rows.length === 0) {
+				setError('取り込み可能な明細が見つかりませんでした。');
+				return;
+			}
+			setPendingRows(rows);
+		} catch {
+			setError(
+				'ファイルの読み込みに失敗しました。Moneyforwardの「収入・支出詳細」CSVか確認してください。',
+			);
+		}
+	};
+
+	const handleCancel = () => setPendingRows(null);
+
+	const handleImport = async () => {
+		const rows = pendingRows();
+		if (!rows) {
+			return;
+		}
+		setBusy(true);
+		setError(null);
+		setProgress({done: 0, total: rows.length});
+		try {
+			for (let i = 0; i < rows.length; i += MONEYFORWARD_CHUNK_SIZE) {
+				const chunk = rows.slice(i, i + MONEYFORWARD_CHUNK_SIZE);
+				await importMoneyforwardRows({rows: chunk});
+				setProgress({
+					done: Math.min(i + MONEYFORWARD_CHUNK_SIZE, rows.length),
+					total: rows.length,
+				});
+			}
+			setPendingRows(null);
+		} catch {
+			setError('インポート中にエラーが発生しました。');
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	return (
+		<li class="flex flex-col gap-2 border-divider border-b-2 pb-4">
+			<div>
+				<p class="font-heading font-extrabold">
+					Moneyforward(手動CSVインポート)
+				</p>
+				<p class="text-[12px] text-text/55">
+					「収入・支出詳細」でエクスポートしたCSV(Shift_JIS)をアップロードします。定期自動同期はありません。
+				</p>
+				<Doc
+					data={dataSourceState}
+					fallback={
+						<p class="text-[13px] text-text/55">
+							状態: {STATUS_LABEL.disconnected}
+						</p>
+					}
+				>
+					{(data) => (
+						<>
+							<p class="text-[13px] text-text/55">
+								状態: {STATUS_LABEL[data.status]}
+							</p>
+							{data.lastSyncedAt && (
+								<p class="text-[13px] text-text/55">
+									最終インポート: {formatDateTime(data.lastSyncedAt.toDate())}
+								</p>
+							)}
+						</>
+					)}
+				</Doc>
+				{error() && <p class="text-[13px] text-accent">{error()}</p>}
+			</div>
+			<Show
+				when={pendingRows()}
+				fallback={
+					<input
+						type="file"
+						accept=".csv"
+						onChange={handleFileChange}
+						disabled={busy()}
+						class="input"
+					/>
+				}
+			>
+				{(rows) => (
+					<div class="flex flex-col gap-2">
+						<Show
+							when={!busy()}
+							fallback={
+								<p class="text-[13px]">
+									インポート中... {progress()?.done ?? 0} /{' '}
+									{progress()?.total ?? 0} 件処理済み
+								</p>
+							}
+						>
+							<p class="text-[13px]">
+								{rows().length}件の明細をインポートします。よろしいですか?
+							</p>
+							<div class="flex gap-2">
+								<button
+									type="button"
+									onClick={handleImport}
+									class="btn btn-primary"
+								>
+									インポート
+								</button>
+								<button
+									type="button"
+									onClick={handleCancel}
+									class="btn btn-secondary"
+								>
+									キャンセル
+								</button>
+							</div>
+						</Show>
+					</div>
+				)}
+			</Show>
+		</li>
+	);
+};
+
 // ── メンテナンス: 重複統合の手動再実行 ─────────────────────────────────
 
 const MaintenanceSection = () => {
@@ -676,6 +842,13 @@ const MaintenanceSection = () => {
 	const [dateTo, setDateTo] = createSignal(getTodayDateString());
 	const [busy, setBusy] = createSignal(false);
 	const [result, setResult] = createSignal<string | null>(null);
+
+	const [rulesDateFrom, setRulesDateFrom] = createSignal(
+		shiftDateString(getTodayDateString(), -30),
+	);
+	const [rulesDateTo, setRulesDateTo] = createSignal(getTodayDateString());
+	const [rulesBusy, setRulesBusy] = createSignal(false);
+	const [rulesResult, setRulesResult] = createSignal<string | null>(null);
 
 	const handleDedupe = async () => {
 		setBusy(true);
@@ -695,37 +868,90 @@ const MaintenanceSection = () => {
 		}
 	};
 
+	const handleApplyFinanceRules = async () => {
+		setRulesBusy(true);
+		setRulesResult(null);
+		try {
+			const response = await applyFinanceRulesNow({
+				dateFrom: rulesDateFrom(),
+				dateTo: rulesDateTo(),
+			});
+			setRulesResult(`${response.data.updated}件のカテゴリを更新しました。`);
+		} catch {
+			setRulesResult('ルールの再適用に失敗しました。');
+		} finally {
+			setRulesBusy(false);
+		}
+	};
+
 	return (
-		<div class="flex flex-col gap-2">
+		<div class="flex flex-col gap-4">
 			<h2 class="font-heading text-base font-extrabold">メンテナンス</h2>
-			<p class="text-[12px] text-text/55">
-				Google
-				Maps訪問記録とSwarmチェックインの重複統合を指定期間で再実行します。
-			</p>
-			<div class="flex flex-wrap items-center gap-2">
-				<input
-					type="date"
-					value={dateFrom()}
-					onInput={(e) => setDateFrom(e.currentTarget.value)}
-					class="input w-auto"
-				/>
-				<span class="text-[13px]">〜</span>
-				<input
-					type="date"
-					value={dateTo()}
-					onInput={(e) => setDateTo(e.currentTarget.value)}
-					class="input w-auto"
-				/>
-				<button
-					type="button"
-					onClick={handleDedupe}
-					disabled={busy()}
-					class="btn btn-secondary"
-				>
-					{busy() ? '実行中...' : '重複を統合'}
-				</button>
+			<div class="flex flex-col gap-2">
+				<p class="text-[12px] text-text/55">
+					Google
+					Maps訪問記録とSwarmチェックイン、Zaim記録とMoneyforward明細の重複統合を指定期間で再実行します。
+				</p>
+				<div class="flex flex-wrap items-center gap-2">
+					<input
+						type="date"
+						value={dateFrom()}
+						onInput={(e) => setDateFrom(e.currentTarget.value)}
+						class="input w-auto"
+					/>
+					<span class="text-[13px]">〜</span>
+					<input
+						type="date"
+						value={dateTo()}
+						onInput={(e) => setDateTo(e.currentTarget.value)}
+						class="input w-auto"
+					/>
+					<button
+						type="button"
+						onClick={handleDedupe}
+						disabled={busy()}
+						class="btn btn-secondary"
+					>
+						{busy() ? '実行中...' : '重複を統合'}
+					</button>
+				</div>
+				{result() && <p class="text-[13px] text-text/55">{result()}</p>}
 			</div>
-			{result() && <p class="text-[13px] text-text/55">{result()}</p>}
+			<div class="flex flex-col gap-2">
+				<p class="text-[12px] text-text/55">
+					家計簿の自動振り分けルール(
+					<a href="/finance" class="underline">
+						/finance
+					</a>{' '}
+					で管理)を指定期間の既存記録へ再適用します。
+				</p>
+				<div class="flex flex-wrap items-center gap-2">
+					<input
+						type="date"
+						value={rulesDateFrom()}
+						onInput={(e) => setRulesDateFrom(e.currentTarget.value)}
+						class="input w-auto"
+					/>
+					<span class="text-[13px]">〜</span>
+					<input
+						type="date"
+						value={rulesDateTo()}
+						onInput={(e) => setRulesDateTo(e.currentTarget.value)}
+						class="input w-auto"
+					/>
+					<button
+						type="button"
+						onClick={handleApplyFinanceRules}
+						disabled={rulesBusy()}
+						class="btn btn-secondary"
+					>
+						{rulesBusy() ? '実行中...' : 'ルールを再適用'}
+					</button>
+				</div>
+				{rulesResult() && (
+					<p class="text-[13px] text-text/55">{rulesResult()}</p>
+				)}
+			</div>
 		</div>
 	);
 };
@@ -753,6 +979,13 @@ const DataSourcesPage = () => (
 					beginOAuth={beginSwarmOAuth}
 					syncNow={syncSwarmNow}
 				/>
+				<OAuthDataSourceCard
+					id="zaim"
+					displayName="Zaim (家計簿)"
+					beginOAuth={beginZaimOAuth}
+					syncNow={syncZaimNow}
+				/>
+				<MoneyforwardCard />
 				<GoogleMapsTimelineCard />
 				<ImmichCard />
 				<PlayniteCard />

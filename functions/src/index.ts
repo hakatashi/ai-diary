@@ -10,15 +10,19 @@ export {
 export {importGoogleMapsTimelineChunk} from './dataSources/googleMapsTimeline/importChunk';
 export {connectImmich} from './dataSources/immich/connect';
 export {getImmichThumbnail} from './dataSources/immich/thumbnail';
+export {importMoneyforwardRows} from './dataSources/moneyforward/importRows';
 export {connectPlaynite} from './dataSources/playnite/connect';
 export {recordPlayniteSession} from './dataSources/playnite/ingest';
 export {
 	beginSwarmOAuth,
 	swarmOAuthCallback,
 } from './dataSources/swarm/oauth';
+export {beginZaimOAuth, zaimOAuthCallback} from './dataSources/zaim/oauth';
+export {applyFinanceRulesNow} from './triggers/applyFinanceRulesNow';
 export {dedupeLogEntriesNow} from './triggers/dedupeLogEntriesNow';
 export {scheduledSync} from './triggers/scheduledSync';
 export {syncGoogleCalendarNow} from './triggers/syncGoogleCalendarNow';
 export {syncGoogleHealthNow} from './triggers/syncGoogleHealthNow';
 export {syncImmichNow} from './triggers/syncImmichNow';
 export {syncSwarmNow} from './triggers/syncSwarmNow';
+export {syncZaimNow} from './triggers/syncZaimNow';

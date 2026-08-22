@@ -8,3 +8,5 @@ export const foursquareClientSecret = defineSecret(
 );
 export const foursquareClientId = defineString('FOURSQUARE_OAUTH_CLIENT_ID');
 export const googlePlacesApiKey = defineSecret('GOOGLE_PLACES_API_KEY');
+export const zaimConsumerSecret = defineSecret('ZAIM_CONSUMER_SECRET');
+export const zaimConsumerKey = defineString('ZAIM_CONSUMER_KEY');

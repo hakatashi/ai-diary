@@ -9,6 +9,7 @@ import {
 	CheckinIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
+	FinanceIcon,
 	GameIcon,
 	LocationIcon,
 	MapIcon,
@@ -45,7 +46,11 @@ const CATEGORY_ICON: Record<
 	calendar: CalendarIcon,
 	photo: PhotoIcon,
 	game: GameIcon,
+	finance: FinanceIcon,
 };
+
+const formatYen = (amountYen: number): string =>
+	`${amountYen < 0 ? '-' : '+'}¥${Math.abs(amountYen).toLocaleString('ja-JP')}`;
 
 const DateNav = (props: {date: string}) => (
 	<>
@@ -90,6 +95,9 @@ const LogEntryItem = (props: {entry: LogEntry; isLast: boolean}) => {
 						{entry.endAt && ` - ${formatTime(entry.endAt.toDate())}`}
 					</span>
 				</div>
+				{entry.finance?.itemName && entry.finance.itemName !== entry.title && (
+					<p class="mt-1.5 text-[13px] opacity-80">{entry.finance.itemName}</p>
+				)}
 				{entry.summary && (
 					<p class="mt-1.5 text-[13px] opacity-80">{entry.summary}</p>
 				)}
@@ -117,6 +125,21 @@ const LogEntryItem = (props: {entry: LogEntry; isLast: boolean}) => {
 							<span class="tag tag-neutral">
 								{entry.metrics.weightKilograms.toFixed(1)}kg
 							</span>
+						)}
+					</div>
+				)}
+				{entry.finance && (
+					<div class="mt-2 flex flex-wrap gap-1.5">
+						<span class="tag tag-neutral">
+							{formatYen(entry.finance.amountYen)}
+						</span>
+						<span class="tag tag-neutral">
+							{entry.finance.majorCategory}
+							{entry.finance.minorCategory &&
+								` / ${entry.finance.minorCategory}`}
+						</span>
+						{entry.finance.account && (
+							<span class="tag tag-neutral">{entry.finance.account}</span>
 						)}
 					</div>
 				)}

@@ -14,6 +14,7 @@ const CATEGORY_COLOR: Record<LogEntryCategory, string> = {
 	calendar: '#7d7979',
 	photo: '#7d7979',
 	game: '#7d7979',
+	finance: '#7d7979',
 };
 
 // 移動経路(ポリライン)はアクセントカラーを基本とし、電車・車など高速な乗り物による移動のみ

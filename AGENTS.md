@@ -55,6 +55,7 @@ Firebaseプロジェクト: `hakatadiary`(`.firebaserc` に設定済み)。
 - [0010](docs/adr/0010-google-health-nutrition-sleep-weight.md) — Google Health連携の拡張(食事・睡眠・体重)
 - [0011](docs/adr/0011-google-health-api-integration-details.md) — Google Health API連携の実装詳細(運動記録・GPSトラック)
 - [0012](docs/adr/0012-playnite-game-session-ingest.md) — PlayniteからのPCゲームプレイ記録はpush型・専用ingestトークン認証で取り込む
+- [0013](docs/adr/0013-zaim-moneyforward-finance-integration.md) — 家計簿統合: Zaim(OAuth 1.0a)+ Moneyforward(手動CSV)、重複統合・手動振り分けルール
 
 ## 開発中、常に守るべきルール
 
@@ -84,3 +85,4 @@ npx firebase deploy       # 本番デプロイ(hosting + firestore rules/indexes
 - `docs/manual-setup-checklist.md` — コード化不可、ユーザー自身の作業が必要な手動セットアップ手順(データソース接続時に参照)
 - `docs/known-issues.md` — 既知の制約・未実装事項・将来フェーズで必要になる認証情報
 - `docs/adr/` — 個々のアーキテクチャ決定の詳細(背景・トレードオフ・実接続で判明した仕様)
+- `docs/browser-debugging.md` — claude-in-chromeでのローカル動作確認手順・注意点(エミュレータ起動、ログイン、Callableのデバッグ方法等)

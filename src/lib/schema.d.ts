@@ -17,7 +17,9 @@ export type DataSourceType =
 	| 'google_maps_timeline'
 	| 'swarm'
 	| 'immich'
-	| 'playnite';
+	| 'playnite'
+	| 'zaim'
+	| 'moneyforward';
 
 export type DataSourceStatus =
 	| 'connected'
@@ -53,7 +55,9 @@ export type LogEntrySourceType =
 	| 'google_maps_memory'
 	| 'swarm_checkin'
 	| 'immich_photo'
-	| 'playnite_session';
+	| 'playnite_session'
+	| 'zaim_money'
+	| 'moneyforward_transaction';
 
 export type LogEntryCategory =
 	| 'exercise'
@@ -64,7 +68,8 @@ export type LogEntryCategory =
 	| 'checkin'
 	| 'calendar'
 	| 'photo'
-	| 'game';
+	| 'game'
+	| 'finance';
 
 export interface LogEntryMetrics {
 	durationMinutes?: number;
@@ -72,6 +77,29 @@ export interface LogEntryMetrics {
 	calories?: number;
 	avgHeartRate?: number;
 	weightKilograms?: number;
+}
+
+export interface FinanceDetails {
+	/** 支出は負、収入は正(円)。isTransfer===trueの記録は集計対象外なので符号は参考値。 */
+	amountYen: number;
+	/** 表示・集計に使う実効カテゴリ(手動ルール適用後)。 */
+	majorCategory: string;
+	minorCategory: string | null;
+	/** データソース側の元カテゴリ。ルール再適用時の起点として保持する。 */
+	sourceMajorCategory: string;
+	sourceMinorCategory: string | null;
+	/** Zaimの口座名 / Moneyforwardの保有金融機関名。 */
+	account: string | null;
+	/**
+	 * Zaimの品名(nameフィールド)。titleには店名(place)を優先して使うため、
+	 * 両方が入力されている場合は品名がtitleに反映されず失われてしまう。それを防ぐために
+	 * 保持する。Moneyforwardには対応する概念がないため常にnull。
+	 */
+	itemName: string | null;
+	/** 口座間振替、またはMoneyforwardの「計算対象」外の記録。支出・収入の集計から除外する。 */
+	isTransfer: boolean;
+	/** 適用された financeRules のドキュメントID(未適用ならnull)。 */
+	matchedRuleId: string | null;
 }
 
 export interface LogEntry extends DocumentData {
@@ -85,6 +113,7 @@ export interface LogEntry extends DocumentData {
 	summary: string | null;
 	metrics: LogEntryMetrics | null;
 	location: GeoPoint | null;
+	finance?: FinanceDetails | null;
 	raw: Record<string, unknown>;
 	sourceRecordId: string;
 	/** 重複統合で他のエントリに吸収された場合にtrue。UI側で非表示にする(rawは保持し削除はしない)。 */
@@ -109,6 +138,20 @@ export interface PlaceCacheEntry extends DocumentData {
 export interface JournalEntry extends DocumentData {
 	date: string;
 	memo: string;
+	createdAt: Timestamp;
+	updatedAt: Timestamp;
+}
+
+/** 手動設定の支出自動振り分けルール。createdAt昇順で最初にマッチしたものを採用する。 */
+export interface FinanceRule extends DocumentData {
+	/** 完全一致条件(nullなら任意)。 */
+	account: string | null;
+	/** 完全一致条件(符号込み、円。nullなら任意)。 */
+	amountYen: number | null;
+	/** logEntryのtitleへの部分一致条件(nullなら任意)。 */
+	descriptionContains: string | null;
+	assignedMajorCategory: string;
+	assignedMinorCategory: string | null;
 	createdAt: Timestamp;
 	updatedAt: Timestamp;
 }
