@@ -14,10 +14,16 @@
 # PowerShell 5.1限定(Playniteのスクリプティング仕様)のため、`??` や三項演算子など
 # PowerShell 7以降の構文は使わない。
 
-$script:AiDiaryConfigPath = Join-Path $env:APPDATA 'AiDiaryPlaynite\config.json'
-
 function OnGameStopped {
 	param($evtArgs)
+
+	# モジュールスコープ($script:)の変数はPlaynite側の関数呼び出し方式では
+	# 参照できず$nullになる(Add-Content/Test-Path等が「Pathがnull」で例外を投げ、
+	# それがtry/catchの外だと呼び出しごと失敗し、中だと握りつぶされて症状が見えなくなる)。
+	# そのため設定ファイルのパスは呼び出しのたびに関数内でローカルに計算する。
+	# $env:APPDATAもPlayniteの実行コンテキストでは信頼できないため、.NET APIで直接取得する。
+	$appDataDir = [Environment]::GetFolderPath([Environment+SpecialFolder]::ApplicationData)
+	$logPath = Join-Path $appDataDir 'AiDiaryPlaynite\debug.log'
 
 	try {
 		$elapsedSeconds = [int]$evtArgs.ElapsedSeconds
@@ -26,13 +32,14 @@ function OnGameStopped {
 			return
 		}
 
-		if (-not (Test-Path $script:AiDiaryConfigPath)) {
-			Write-Host "[AiDiaryPlaynite] Config file not found: $script:AiDiaryConfigPath"
+		$configPath = Join-Path $appDataDir 'AiDiaryPlaynite\config.json'
+		if (-not (Test-Path $configPath)) {
+			Add-Content -Path $logPath -Value "$(Get-Date -Format o) [WARN] Config file not found: $configPath"
 			return
 		}
-		$config = Get-Content -Path $script:AiDiaryConfigPath -Raw | ConvertFrom-Json
+		$config = Get-Content -Path $configPath -Raw | ConvertFrom-Json
 		if (-not $config.endpointUrl -or -not $config.ingestToken) {
-			Write-Host '[AiDiaryPlaynite] Config is missing endpointUrl or ingestToken.'
+			Add-Content -Path $logPath -Value "$(Get-Date -Format o) [WARN] Config is missing endpointUrl or ingestToken."
 			return
 		}
 
@@ -62,11 +69,11 @@ function OnGameStopped {
 			-Body ([System.Text.Encoding]::UTF8.GetBytes($payload)) `
 			-TimeoutSec 10 | Out-Null
 
-		Write-Host "[AiDiaryPlaynite] Recorded session: $($game.Name) ($elapsedSeconds sec)"
+		Add-Content -Path $logPath -Value "$(Get-Date -Format o) [OK] Recorded session: $($game.Name) ($elapsedSeconds sec)"
 	} catch {
 		# ネットワーク不通・サーバーエラーでもPlaynite本体の動作に影響を与えないよう、
 		# 例外は握りつぶしログのみ残す(再送キューは未実装。ADR-0012参照)。
-		Write-Host "[AiDiaryPlaynite] Failed to record session: $_"
+		Add-Content -Path $logPath -Value "$(Get-Date -Format o) [ERROR] Failed to record session: $_"
 	}
 }
 
